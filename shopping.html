@@ -2,171 +2,103 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LLM Shopping Assistant</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
-    body {
-      font-family: sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 20px;
-    }
-    .container {
-      max-width: 500px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    h1 {
-      text-align: center;
-      font-size: 1.5em;
-    }
-    video, img {
-      width: 100%;
-      border-radius: 8px;
-      margin-bottom: 10px;
-    }
-    button {
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      padding: 10px 15px;
-      margin: 5px 0;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #45a049;
-    }
-    .output {
-      background: #eee;
-      padding: 10px;
-      border-radius: 5px;
-      min-height: 40px;
-      white-space: pre-wrap;
-    }
-    .input-area {
-      display: flex;
-      margin-top: 10px;
-    }
-    .input-area input {
-      flex: 1;
-      padding: 10px;
-      border-radius: 5px 0 0 5px;
-      border: 1px solid #ccc;
-    }
-    .input-area button {
-      border-radius: 0 5px 5px 0;
-      margin: 0;
-    }
+    body { font-family: sans-serif; text-align: center; margin: 20px; }
+    img { max-width: 300px; margin-top: 10px; }
+    textarea, input, button { margin-top: 10px; display: block; width: 90%; margin-left: auto; margin-right: auto; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>LLM Shopping Assistant</h1>
-    <video id="camera" autoplay playsinline></video>
-    <button onclick="capturePhoto()">Capture Label</button>
-    <canvas id="snapshot" style="display:none;"></canvas>
-    <img id="capturedImage" alt="Captured Image" style="display:none;"/>
+  <h2>Product Label Scanner</h2>
+  <video id="camera" width="300" autoplay></video>
+  <button id="capture">📸 Capture Label</button>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <img id="capturedImg" />
+  
+  <button id="runOCR">Run OCR</button>
+  <textarea id="ocrOutput" rows="10" readonly></textarea>
 
-    <button onclick="runOCR()">Run OCR</button>
-    <div id="ocrResult" class="output">OCR output will appear here...</div>
+  <button onclick="translateText()">Translate</button>
+  <p id="translatedResult"></p>
 
-    <button onclick="runTranslation()">Translate</button>
-    <div id="translationResult" class="output">Translation will appear here...</div>
+  <input id="question" placeholder="Ask a question... e.g., Cost? Buy it?" />
+  <button onclick="askQuestion()">Ask</button>
+  <p id="answer"></p>
 
-    <div class="input-area">
-      <input id="question" placeholder="Ask something like 'Cost?' or 'Buy it?'">
-      <button onclick="askLLM()">Ask</button>
-    </div>
-    <div id="llmResponse" class="output">LLM answer will appear here...</div>
-  </div>
-
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.4/dist/tesseract.min.js"></script>
   <script>
-    const video = document.getElementById("camera");
-    const canvas = document.getElementById("snapshot");
-    const img = document.getElementById("capturedImage");
-    let lastOCRText = "";
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    const capturedImg = document.getElementById('capturedImg');
+    const ocrOutput = document.getElementById('ocrOutput');
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => video.srcObject = stream)
-      .catch(err => console.error("Camera error:", err));
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => video.srcObject = stream);
 
-    function capturePhoto() {
-      const context = canvas.getContext("2d");
+    document.getElementById('capture').onclick = () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0);
-      const dataURL = canvas.toDataURL("image/png");
-      img.src = dataURL;
-      img.style.display = "block";
-    }
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      capturedImg.src = canvas.toDataURL('image/png');
+    };
 
-    function runOCR() {
-      document.getElementById("ocrResult").innerText = "Processing OCR...";
-      Tesseract.recognize(canvas, 'eng+kor', {
-        logger: m => console.log(m)
-      }).then(({ data: { text } }) => {
-        lastOCRText = text.trim();
-        document.getElementById("ocrResult").innerText = lastOCRText || "No text detected.";
-      });
-    }
+    document.getElementById('runOCR').onclick = async () => {
+      ocrOutput.value = "Detecting...";
+      const result = await Tesseract.recognize(capturedImg.src, 'eng+kor', { logger: m => console.log(m) });
+      ocrOutput.value = result.data.text;
+    };
 
-    function runTranslation() {
-      const text = lastOCRText.toLowerCase();
-      let result = "Translated (smart): ";
-
-      if (!text || text.includes("no text")) {
-        result += "No OCR result to translate.";
-      } else if (text.includes("milk") || text.includes("우유")) {
-        result += "⚠️ Contains milk (possible allergen).";
-      } else if (text.includes("soy") || text.includes("대두")) {
-        result += "⚠️ Contains soy (possible allergen).";
+    function translateText() {
+      const text = ocrOutput.value;
+      if (text.includes("알레르기") || text.includes("allergy")) {
+        document.getElementById('translatedResult').innerText = "⚠️ Possible allergen warning.";
       } else {
-        result += "No specific allergens found.";
+        document.getElementById('translatedResult').innerText = "Translated (smart): No specific allergens found.";
       }
-
-      document.getElementById("translationResult").innerText = result;
     }
 
-    function askLLM() {
-      const question = document.getElementById("question").value.toLowerCase();
-      const text = lastOCRText.toLowerCase();
-      const responseBox = document.getElementById("llmResponse");
+    function askQuestion() {
+      const text = ocrOutput.value;
+      const q = document.getElementById('question').value.trim().toLowerCase();
+      let answer = "🤔 Not enough info to confidently recommend this product.";
 
-      if (!text) {
-        responseBox.innerText = "Please run OCR first.";
-        return;
-      }
-
-      if (question.includes("price") || question.includes("cost") || question.includes("how much")) {
-        const match = text.match(/₩?\s?(\d{1,4})/);
-        if (match) {
-          responseBox.innerText = `Detected price: ${match[1]}`;
+      if (q.includes("price") || q.includes("cost") || q.includes("how much")) {
+        const priceMatch = text.match(/[₩wW] ?[0-9]{1,4}/);
+        if (priceMatch) {
+          answer = `Detected price: ${priceMatch[0].replace(/[^\d]/g, "")}`;
         } else {
-          responseBox.innerText = "Price information not clearly detected.";
+          answer = "Price information not clearly detected.";
         }
-        return;
       }
 
-      if (question.includes("buy")) {
-        const hasExpired = /20\d{2}[\.\-]?(0[1-9]|1[0-2])[\.\-]?(0[1-9]|[12]\d|3[01])/.test(text);
-        const isMadeInKorea = text.includes("made in korea") || text.includes("한국");
+      else if (q.includes("buy")) {
+        const expireMatch = text.match(/\b(20[0-9]{2}[01][0-9][0-3][0-9])\b/); // YYYYMMDD format
+        const now = new Date();
+        let isExpired = false;
 
-        if (hasExpired) {
-          responseBox.innerText = "❌ Do not buy: expiration date found.";
-        } else if (isMadeInKorea) {
-          responseBox.innerText = "✅ Product is made in Korea. Likely good quality.";
+        if (expireMatch) {
+          const exp = expireMatch[0];
+          const year = parseInt(exp.substring(0, 4));
+          const month = parseInt(exp.substring(4, 6)) - 1;
+          const day = parseInt(exp.substring(6, 8));
+          const expDate = new Date(year, month, day);
+          isExpired = expDate < now;
+        }
+
+        if (isExpired) {
+          answer = "❌ No. Product is expired.";
+        } else if (text.includes("오염") || text.includes("변색")) {
+          answer = "❌ No. Possible quality issue found.";
+        } else if (expireMatch) {
+          answer = "✅ Yes. Product is within expiry.";
         } else {
-          responseBox.innerText = "🤔 Not enough info to confidently recommend this product.";
+          answer = "🤔 Not enough info to confirm product status.";
         }
-        return;
       }
 
-      responseBox.innerText = "I couldn't understand the question clearly.";
+      document.getElementById("answer").innerText = answer;
     }
   </script>
 </body>
