@@ -117,7 +117,7 @@
       document.getElementById("ocrResult").innerText = "Processing OCR...";
       Tesseract.recognize(
         canvas,
-        'eng',
+        'eng+kor',
         { logger: m => console.log(m) }
       ).then(({ data: { text } }) => {
         document.getElementById("ocrResult").innerText = text.trim() || "No text detected.";
@@ -142,6 +142,8 @@
         response = "Yes, the product may include allergens such as milk, soy, or gluten.";
       } else if (question.toLowerCase().includes("origin")) {
         response = "The product is manufactured in South Korea.";
+      } else if (question.toLowerCase().includes("danger")) {
+        response = "This product is safe for most people, but consult a pharmacist if unsure.";
       } else {
         response = "This is a healthy product suitable for most people.";
       }
