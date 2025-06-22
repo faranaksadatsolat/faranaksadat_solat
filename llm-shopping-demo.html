@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smartphone LLM Shopping Assistant</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8f8f8;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      font-size: 1.5rem;
+      text-align: center;
+    }
+    .section {
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      display: block;
+      margin: 10px 0;
+    }
+    button {
+      display: inline-block;
+      margin: 5px 5px 10px 0;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .output {
+      background: #eee;
+      padding: 10px;
+      border-radius: 5px;
+      min-height: 50px;
+    }
+    .chat-input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>LLM Shopping Assistant</h1>
+
+    <div class="section">
+      <label for="image">Upload Product Label:</label>
+      <input type="file" id="image" accept="image/*" />
+    </div>
+
+    <div class="section">
+      <button onclick="runOCR()">Run OCR</button>
+      <div id="ocrResult" class="output">OCR Result will appear here...</div>
+    </div>
+
+    <div class="section">
+      <button onclick="runTranslation()">Translate</button>
+      <div id="translationResult" class="output">Translation will appear here...</div>
+    </div>
+
+    <div class="section">
+      <input id="question" class="chat-input" placeholder="Ask a question about the product..." />
+      <button onclick="askLLM()">Ask</button>
+      <div id="llmResponse" class="output">LLM response will appear here...</div>
+    </div>
+  </div>
+
+  <script>
+    function runOCR() {
+      document.getElementById("ocrResult").innerText =
+        "Mock OCR: Contains sugar, wheat, soy, and milk. Made in Korea.";
+    }
+
+    function runTranslation() {
+      document.getElementById("translationResult").innerText =
+        "Translated: This product may cause allergic reactions. Origin: South Korea.";
+    }
+
+    function askLLM() {
+      const question = document.getElementById("question").value;
+      let response = "";
+      if (question.toLowerCase().includes("allergy")) {
+        response = "Yes, this product contains common allergens such as milk and soy.";
+      } else if (question.toLowerCase().includes("origin")) {
+        response = "This product is manufactured in South Korea.";
+      } else {
+        response = "This product is healthy and safe for general consumption.";
+      }
+      document.getElementById("llmResponse").innerText = response;
+    }
+  </script>
+</body>
+</html>
