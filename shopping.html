@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LLM Shopping Assistant (Smart Demo)</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -136,22 +136,41 @@
       if (!ocrText) {
         response = "Please run OCR first.";
       } else if (question.includes("how much") || question.includes("price") || question.includes("cost")) {
-        const priceMatch = ocrText.match(/₩?\s?[\d,]+원?/);
+        const priceMatch = ocrText.match(/[₩w]?\s?[\d,]{3,5}/);
         if (priceMatch) {
-          response = "Detected price: " + priceMatch[0].replace(/\s/g, '');
+          const cleanPrice = priceMatch[0].replace(/[^\d]/g, "");
+          response = "Detected price: ₩" + cleanPrice;
         } else {
           response = "Price information not clearly detected.";
         }
-      } else if (question.includes("allergy") || question.includes("safe") || question.includes("dangerous")) {
-        if (ocrText.includes("우유") || ocrText.includes("milk") || ocrText.includes("대두") || ocrText.includes("soy")) {
-          response = "This product may cause allergic reactions in sensitive individuals.";
-        } else {
-          response = "No major allergens detected. Likely safe for most users.";
+      } else if (question.includes("should i buy") || question.includes("buy it") || question.includes("recommend")) {
+        const dateMatch = ocrText.match(/\b(20[0-9]{6,8})\b/); // Match 8-digit date e.g., 20280114
+        let safe = true;
+
+        if (ocrText.includes("오염") || ocrText.includes("변색") || ocrText.includes("손상")) {
+          response = "❌ No. Quality issue detected.";
+          safe = false;
+        } else if (dateMatch) {
+          const exp = dateMatch[0];
+          const year = parseInt(exp.slice(0, 4));
+          const month = parseInt(exp.slice(4, 6)) - 1;
+          const day = parseInt(exp.slice(6, 8));
+          const expDate = new Date(year, month, day);
+          const now = new Date();
+
+          if (expDate < now) {
+            response = "❌ No. Product is expired.";
+            safe = false;
+          } else {
+            response = "✅ Yes. Product is within expiry.";
+          }
         }
-      } else if (question.includes("should i buy") || question.includes("recommend")) {
-        response = "Based on label info, the product appears standard.";
+
+        if (!dateMatch && safe) {
+          response = "🤔 Not enough info to confidently recommend this product.";
+        }
       } else {
-        response = "Sorry, I can only answer basic product safety and price questions for now.";
+        response = "💡 Try asking 'How much is it?', 'Buy it?', or 'Any allergens?'.";
       }
 
       document.getElementById("llmResponse").innerText = response;
