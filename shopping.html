@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LLM Shopping Assistant</title>
+  <title>LLM Shopping Assistant (Smart Demo)</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
     body {
@@ -63,7 +63,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>LLM Shopping Assistant</h1>
+    <h1>LLM Shopping Assistant (Smart Demo)</h1>
 
     <div class="section">
       <video id="camera" autoplay playsinline></video>
@@ -93,6 +93,7 @@
     const video = document.getElementById("camera");
     const canvas = document.getElementById("snapshot");
     const image = document.getElementById("capturedImage");
+    let lastOCRText = "";
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
       .then(stream => {
@@ -120,33 +121,49 @@
         'eng+kor',
         { logger: m => console.log(m) }
       ).then(({ data: { text } }) => {
-        document.getElementById("ocrResult").innerText = text.trim() || "No text detected.";
+        lastOCRText = text.trim();
+        document.getElementById("ocrResult").innerText = lastOCRText || "No text detected.";
       });
     }
 
     function runTranslation() {
-      const ocrText = document.getElementById("ocrResult").innerText;
-      if (!ocrText || ocrText.includes("No text")) {
+      const ocrText = lastOCRText.toLowerCase();
+      if (!ocrText || ocrText.includes("no text")) {
         document.getElementById("translationResult").innerText = "No OCR result to translate.";
         return;
       }
-      document.getElementById("translationResult").innerText =
-        "Translated (example): " +
-        "This product may contain allergens. Please read carefully before purchasing. Made in Korea.";
+
+      let translation = "Translated (smart): ";
+      if (ocrText.includes("우유") || ocrText.includes("milk")) {
+        translation += "Warning: Contains milk.";
+      } else if (ocrText.includes("대두") || ocrText.includes("soy")) {
+        translation += "Contains soy. May cause allergy.";
+      } else if (ocrText.includes("한국") || ocrText.includes("korea")) {
+        translation += "Product of Korea. Safe for most users.";
+      } else {
+        translation += "No specific allergens found.";
+      }
+
+      document.getElementById("translationResult").innerText = translation;
     }
 
     function askLLM() {
-      const question = document.getElementById("question").value;
+      const question = document.getElementById("question").value.toLowerCase();
+      const ocrText = lastOCRText.toLowerCase();
       let response = "";
-      if (question.toLowerCase().includes("allergy")) {
-        response = "Yes, the product may include allergens such as milk, soy, or gluten.";
-      } else if (question.toLowerCase().includes("origin")) {
-        response = "The product is manufactured in South Korea.";
-      } else if (question.toLowerCase().includes("danger")) {
-        response = "This product is safe for most people, but consult a pharmacist if unsure.";
+
+      if (!ocrText) {
+        response = "Please run OCR first.";
+      } else if (question.includes("allergy") || question.includes("dangerous") || question.includes("safe")) {
+        if (ocrText.includes("우유") || ocrText.includes("milk") || ocrText.includes("대두") || ocrText.includes("soy")) {
+          response = "This product may cause allergic reactions in sensitive individuals.";
+        } else {
+          response = "No major allergens detected. Likely safe for most users.";
+        }
       } else {
-        response = "This is a healthy product suitable for most people.";
+        response = "Based on label info, the product appears standard.";
       }
+
       document.getElementById("llmResponse").innerText = response;
     }
   </script>
