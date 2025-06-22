@@ -7,58 +7,55 @@
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: Arial, sans-serif;
       margin: 0;
       padding: 20px;
-      background-color: #f8f8f8;
+      background: #f9f9f9;
     }
     .container {
       max-width: 500px;
       margin: auto;
-      background: white;
+      background: #fff;
       padding: 20px;
-      border-radius: 10px;
+      border-radius: 12px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
     h1 {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       text-align: center;
-    }
-    .section {
-      margin-bottom: 20px;
     }
     video, canvas, img {
       width: 100%;
-      max-height: 300px;
+      max-height: 280px;
       border-radius: 10px;
-      margin-bottom: 10px;
+      margin: 10px 0;
     }
     button {
-      display: inline-block;
-      margin: 5px 5px 10px 0;
       padding: 10px 15px;
-      border: none;
-      border-radius: 5px;
       background: #4CAF50;
       color: white;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
+      margin-bottom: 10px;
     }
     button:hover {
-      background: #45a049;
+      background: #388e3c;
     }
     .output {
       background: #eee;
       padding: 10px;
-      border-radius: 5px;
-      min-height: 50px;
+      border-radius: 6px;
+      min-height: 40px;
+      margin-bottom: 10px;
       white-space: pre-wrap;
     }
     .chat-input {
       width: 100%;
       padding: 10px;
-      margin-top: 10px;
       border-radius: 5px;
       border: 1px solid #ccc;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -66,28 +63,20 @@
   <div class="container">
     <h1>LLM Shopping Assistant (Smart Demo)</h1>
 
-    <div class="section">
-      <video id="camera" autoplay playsinline></video>
-      <button onclick="capturePhoto()">Capture Label</button>
-      <canvas id="snapshot" style="display:none;"></canvas>
-      <img id="capturedImage" alt="Captured label" style="display:none;" />
-    </div>
+    <video id="camera" autoplay playsinline></video>
+    <button onclick="capturePhoto()">Capture Label</button>
+    <canvas id="snapshot" style="display:none;"></canvas>
+    <img id="capturedImage" style="display:none;" alt="Captured label"/>
 
-    <div class="section">
-      <button onclick="runOCR()">Run OCR</button>
-      <div id="ocrResult" class="output">OCR Result will appear here...</div>
-    </div>
+    <button onclick="runOCR()">Run OCR</button>
+    <div id="ocrResult" class="output">OCR Result will appear here...</div>
 
-    <div class="section">
-      <button onclick="runTranslation()">Translate</button>
-      <div id="translationResult" class="output">Translation will appear here...</div>
-    </div>
+    <button onclick="runTranslation()">Translate</button>
+    <div id="translationResult" class="output">Translation will appear here...</div>
 
-    <div class="section">
-      <input id="question" class="chat-input" placeholder="Ask a question about the product...">
-      <button onclick="askLLM()">Ask</button>
-      <div id="llmResponse" class="output">LLM response will appear here...</div>
-    </div>
+    <input id="question" class="chat-input" placeholder="Ask a question about the product...">
+    <button onclick="askLLM()">Ask</button>
+    <div id="llmResponse" class="output">LLM response will appear here...</div>
   </div>
 
   <script>
@@ -97,18 +86,14 @@
     let lastOCRText = "";
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => {
-        video.srcObject = stream;
-      })
-      .catch(err => {
-        console.error("Camera access error:", err);
-      });
+      .then(stream => video.srcObject = stream)
+      .catch(err => console.error("Camera error:", err));
 
     function capturePhoto() {
-      const context = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0);
+      ctx.drawImage(video, 0, 0);
       const dataURL = canvas.toDataURL("image/png");
       image.src = dataURL;
       image.style.display = "block";
@@ -116,30 +101,25 @@
     }
 
     function runOCR() {
-      document.getElementById("ocrResult").innerText = "Processing OCR...";
-      Tesseract.recognize(
-        canvas,
-        'eng+kor',
-        { logger: m => console.log(m) }
-      ).then(({ data: { text } }) => {
-        lastOCRText = text.trim();
-        document.getElementById("ocrResult").innerText = lastOCRText || "No text detected.";
-      });
+      document.getElementById("ocrResult").innerText = "Running OCR...";
+      Tesseract.recognize(canvas, 'eng+kor', { logger: m => console.log(m) })
+        .then(({ data: { text } }) => {
+          lastOCRText = text.trim();
+          document.getElementById("ocrResult").innerText = lastOCRText || "No text detected.";
+        });
     }
 
     function runTranslation() {
       const ocrText = lastOCRText.toLowerCase();
-      if (!ocrText || ocrText.includes("no text")) {
-        document.getElementById("translationResult").innerText = "No OCR result to translate.";
-        return;
-      }
-
       let translation = "Translated (smart): ";
-      if (ocrText.includes("우유") || ocrText.includes("milk")) {
+
+      if (!ocrText || ocrText.includes("no text")) {
+        translation += "No OCR result to translate.";
+      } else if (ocrText.includes("우유") || ocrText.includes("milk")) {
         translation += "Warning: Contains milk.";
       } else if (ocrText.includes("대두") || ocrText.includes("soy")) {
         translation += "Contains soy. May cause allergy.";
-      } else if (ocrText.includes("한국") || ocrText.includes("korea")) {
+      } else if (ocrText.includes("한국") || ocrText.includes("made in korea")) {
         translation += "Product of Korea. Safe for most users.";
       } else {
         translation += "No specific allergens found.";
@@ -155,21 +135,23 @@
 
       if (!ocrText) {
         response = "Please run OCR first.";
-      } else if (question.includes("allergy") || question.includes("dangerous") || question.includes("safe")) {
+      } else if (question.includes("how much") || question.includes("price") || question.includes("cost")) {
+        const priceMatch = ocrText.match(/₩?\s?[\d,]+원?/);
+        if (priceMatch) {
+          response = "Detected price: " + priceMatch[0].replace(/\s/g, '');
+        } else {
+          response = "Price information not clearly detected.";
+        }
+      } else if (question.includes("allergy") || question.includes("safe") || question.includes("dangerous")) {
         if (ocrText.includes("우유") || ocrText.includes("milk") || ocrText.includes("대두") || ocrText.includes("soy")) {
           response = "This product may cause allergic reactions in sensitive individuals.";
         } else {
           response = "No major allergens detected. Likely safe for most users.";
         }
-      } else if (question.includes("how much") || question.includes("price") || question.includes("cost")) {
-        const priceMatch = ocrText.match(/₩\s?\d{1,3}(,\d{3})*|\d{1,3}(,\d{3})*\s?원/);
-        if (priceMatch) {
-          response = `The price is ${priceMatch[0]}.`;
-        } else {
-          response = "Price information not clearly detected.";
-        }
-      } else {
+      } else if (question.includes("should i buy") || question.includes("recommend")) {
         response = "Based on label info, the product appears standard.";
+      } else {
+        response = "Sorry, I can only answer basic product safety and price questions for now.";
       }
 
       document.getElementById("llmResponse").innerText = response;
