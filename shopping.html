@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LLM Shopping Assistant</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <style>
@@ -56,24 +56,24 @@
 
   <div class="box">
     <video id="video" autoplay playsinline></video>
-    <button onclick="capture()">Capture Label</button>
+    <button onclick="capture()">📷 Capture Label</button>
     <canvas id="canvas" style="display:none;"></canvas>
     <img id="snapshot" src="">
   </div>
 
   <div class="box">
-    <button onclick="runOCR()">Run OCR</button>
+    <button onclick="runOCR()">🔍 Run OCR</button>
     <div id="ocrResult">OCR result will appear here...</div>
   </div>
 
   <div class="box">
-    <button onclick="translate()">Translate</button>
+    <button onclick="translate()">🌐 Translate</button>
     <div id="translation">Translation will appear here...</div>
   </div>
 
   <div class="box">
     <input type="text" id="question" placeholder="Ask a question about the product...">
-    <button onclick="askLLM()">Ask</button>
+    <button onclick="askLLM()">💬 Ask</button>
     <div id="llmResponse">LLM response will appear here...</div>
   </div>
 
@@ -83,25 +83,30 @@
     const snapshot = document.getElementById("snapshot");
     const ctx = canvas.getContext("2d");
 
-    // Start camera
+    // Start the camera
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
       .then(stream => {
         video.srcObject = stream;
+      })
+      .catch(err => {
+        alert("Unable to access camera. Please check permissions.");
+        console.error(err);
       });
 
-    // Capture image
+    // Capture image from camera
     function capture() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
+      ctx.filter = 'grayscale(100%) contrast(150%)';
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const imageData = canvas.toDataURL("image/png");
       snapshot.src = imageData;
     }
 
-    // Run OCR using Tesseract.js
+    // Run OCR using Tesseract.js with English + Korean
     function runOCR() {
       document.getElementById("ocrResult").innerText = "Processing OCR...";
-      Tesseract.recognize(canvas, 'eng')
+      Tesseract.recognize(canvas, 'eng+kor')
         .then(({ data: { text } }) => {
           document.getElementById("ocrResult").innerText = text.trim() || "No text found.";
         })
@@ -111,7 +116,7 @@
         });
     }
 
-    // Translate (mock)
+    // Simulate translation output
     function translate() {
       const text = document.getElementById("ocrResult").innerText;
       if (!text || text === "OCR result will appear here...") {
@@ -119,18 +124,18 @@
         return;
       }
       document.getElementById("translation").innerText = 
-        "Translated: This product may contain allergens such as wheat, soy, or milk. Please check ingredients carefully.";
+        "Translated: This product may contain allergens or ingredients that require attention. Please read carefully.";
     }
 
-    // Ask question (mock LLM)
+    // Simulated LLM QA
     function askLLM() {
       const q = document.getElementById("question").value;
       if (!q.trim()) {
         document.getElementById("llmResponse").innerText = "Please enter a question.";
         return;
       }
-      document.getElementById("llmResponse").innerText = 
-        `Answer: Based on product information, ${q.toLowerCase().includes("safe") ? "it appears safe for most users, but check allergy info." : "please check the label carefully."}`;
+      document.getElementById("llmResponse").innerText =
+        `Answer: ${q.toLowerCase().includes("safe") ? "Yes, but verify allergens before purchase." : "Please check the ingredients or ask the store staff for details."}`;
     }
   </script>
 
