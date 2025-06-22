@@ -154,6 +154,11 @@
 
       if (!ocrText) {
         response = "Please run OCR first.";
+      } else if (question.includes("how much") || question.includes("price") || question.includes("cost")) {
+        const priceMatch = ocrText.match(/₩\s?\d{1,6}|(\d{1,6})\s?원/);
+        response = priceMatch
+          ? `The product price is: ${priceMatch[0].replace(/\s+/g, '')}`
+          : "Price information not clearly detected.";
       } else if (question.includes("allergy") || question.includes("dangerous") || question.includes("safe")) {
         if (ocrText.includes("우유") || ocrText.includes("milk") || ocrText.includes("대두") || ocrText.includes("soy")) {
           response = "This product may cause allergic reactions in sensitive individuals.";
