@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LLM Shopping Assistant</title>
+  <title>LLM Shopping Assistant (Smart Demo)</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
     body {
-      font-family: sans-serif;
-      background: #f5f5f5;
+      font-family: Arial, sans-serif;
       margin: 0;
       padding: 20px;
+      background: #f9f9f9;
     }
     .container {
       max-width: 500px;
@@ -18,77 +18,71 @@
       background: #fff;
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
     h1 {
+      font-size: 1.4rem;
       text-align: center;
-      font-size: 1.5em;
     }
-    video, img {
+    video, canvas, img {
       width: 100%;
-      border-radius: 8px;
-      margin-bottom: 10px;
+      max-height: 280px;
+      border-radius: 10px;
+      margin: 10px 0;
     }
     button {
+      padding: 10px 15px;
       background: #4CAF50;
       color: white;
       border: none;
-      border-radius: 5px;
-      padding: 10px 15px;
-      margin: 5px 0;
+      border-radius: 6px;
       cursor: pointer;
+      margin-bottom: 10px;
     }
     button:hover {
-      background: #45a049;
+      background: #388e3c;
     }
     .output {
       background: #eee;
       padding: 10px;
-      border-radius: 5px;
+      border-radius: 6px;
       min-height: 40px;
+      margin-bottom: 10px;
       white-space: pre-wrap;
     }
-    .input-area {
-      display: flex;
-      margin-top: 10px;
-    }
-    .input-area input {
-      flex: 1;
+    .chat-input {
+      width: 100%;
       padding: 10px;
-      border-radius: 5px 0 0 5px;
+      border-radius: 5px;
       border: 1px solid #ccc;
-    }
-    .input-area button {
-      border-radius: 0 5px 5px 0;
-      margin: 0;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>LLM Shopping Assistant</h1>
+    <h1>LLM Shopping Assistant (Smart Demo)</h1>
+
     <video id="camera" autoplay playsinline></video>
     <button onclick="capturePhoto()">Capture Label</button>
     <canvas id="snapshot" style="display:none;"></canvas>
-    <img id="capturedImage" alt="Captured Image" style="display:none;"/>
+    <img id="capturedImage" style="display:none;" alt="Captured label"/>
 
     <button onclick="runOCR()">Run OCR</button>
-    <div id="ocrResult" class="output">OCR output will appear here...</div>
+    <div id="ocrResult" class="output">OCR Result will appear here...</div>
 
     <button onclick="runTranslation()">Translate</button>
     <div id="translationResult" class="output">Translation will appear here...</div>
 
-    <div class="input-area">
-      <input id="question" placeholder="Ask something like 'Cost?' or 'Buy it?'">
-      <button onclick="askLLM()">Ask</button>
-    </div>
-    <div id="llmResponse" class="output">LLM answer will appear here...</div>
+    <input id="question" class="chat-input" placeholder="Ask a question about the product...">
+    <button onclick="askLLM()">Ask</button>
+    <div id="llmResponse" class="output">LLM response will appear here...</div>
   </div>
 
   <script>
     const video = document.getElementById("camera");
     const canvas = document.getElementById("snapshot");
-    const img = document.getElementById("capturedImage");
+    const image = document.getElementById("capturedImage");
     let lastOCRText = "";
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
@@ -96,77 +90,71 @@
       .catch(err => console.error("Camera error:", err));
 
     function capturePhoto() {
-      const context = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0);
+      ctx.drawImage(video, 0, 0);
       const dataURL = canvas.toDataURL("image/png");
-      img.src = dataURL;
-      img.style.display = "block";
+      image.src = dataURL;
+      image.style.display = "block";
+      alert("Image captured. You can now run OCR.");
     }
 
     function runOCR() {
-      document.getElementById("ocrResult").innerText = "Processing OCR...";
-      Tesseract.recognize(canvas, 'eng+kor', {
-        logger: m => console.log(m)
-      }).then(({ data: { text } }) => {
-        lastOCRText = text.trim();
-        document.getElementById("ocrResult").innerText = lastOCRText || "No text detected.";
-      });
+      document.getElementById("ocrResult").innerText = "Running OCR...";
+      Tesseract.recognize(canvas, 'eng+kor', { logger: m => console.log(m) })
+        .then(({ data: { text } }) => {
+          lastOCRText = text.trim();
+          document.getElementById("ocrResult").innerText = lastOCRText || "No text detected.";
+        });
     }
 
     function runTranslation() {
-      const text = lastOCRText.toLowerCase();
-      let result = "Translated (smart): ";
+      const ocrText = lastOCRText.toLowerCase();
+      let translation = "Translated (smart): ";
 
-      if (!text || text.includes("no text")) {
-        result += "No OCR result to translate.";
-      } else if (text.includes("milk") || text.includes("우유")) {
-        result += "⚠️ Contains milk (possible allergen).";
-      } else if (text.includes("soy") || text.includes("대두")) {
-        result += "⚠️ Contains soy (possible allergen).";
+      if (!ocrText || ocrText.includes("no text")) {
+        translation += "No OCR result to translate.";
+      } else if (ocrText.includes("우유") || ocrText.includes("milk")) {
+        translation += "Warning: Contains milk.";
+      } else if (ocrText.includes("대두") || ocrText.includes("soy")) {
+        translation += "Contains soy. May cause allergy.";
+      } else if (ocrText.includes("한국") || ocrText.includes("made in korea")) {
+        translation += "Product of Korea. Safe for most users.";
       } else {
-        result += "No specific allergens found.";
+        translation += "No specific allergens found.";
       }
 
-      document.getElementById("translationResult").innerText = result;
+      document.getElementById("translationResult").innerText = translation;
     }
 
     function askLLM() {
       const question = document.getElementById("question").value.toLowerCase();
-      const text = lastOCRText.toLowerCase();
-      const responseBox = document.getElementById("llmResponse");
+      const ocrText = lastOCRText.toLowerCase();
+      let response = "";
 
-      if (!text) {
-        responseBox.innerText = "Please run OCR first.";
-        return;
-      }
-
-      if (question.includes("price") || question.includes("cost") || question.includes("how much")) {
-        const match = text.match(/₩?\s?(\d{1,4})/);
-        if (match) {
-          responseBox.innerText = `Detected price: ${match[1]}`;
+      if (!ocrText) {
+        response = "Please run OCR first.";
+      } else if (question.includes("how much") || question.includes("price") || question.includes("cost")) {
+        const priceMatch = ocrText.match(/₩?\s?[\d,]+원?/);
+        if (priceMatch) {
+          response = "Detected price: " + priceMatch[0].replace(/\s/g, '');
         } else {
-          responseBox.innerText = "Price information not clearly detected.";
+          response = "Price information not clearly detected.";
         }
-        return;
-      }
-
-      if (question.includes("buy")) {
-        const hasExpired = /20\d{2}[\.\-]?(0[1-9]|1[0-2])[\.\-]?(0[1-9]|[12]\d|3[01])/.test(text);
-        const isMadeInKorea = text.includes("made in korea") || text.includes("한국");
-
-        if (hasExpired) {
-          responseBox.innerText = "❌ Do not buy: expiration date found.";
-        } else if (isMadeInKorea) {
-          responseBox.innerText = "✅ Product is made in Korea. Likely good quality.";
+      } else if (question.includes("allergy") || question.includes("safe") || question.includes("dangerous")) {
+        if (ocrText.includes("우유") || ocrText.includes("milk") || ocrText.includes("대두") || ocrText.includes("soy")) {
+          response = "This product may cause allergic reactions in sensitive individuals.";
         } else {
-          responseBox.innerText = "🤔 Not enough info to confidently recommend this product.";
+          response = "No major allergens detected. Likely safe for most users.";
         }
-        return;
+      } else if (question.includes("should i buy") || question.includes("recommend")) {
+        response = "Based on label info, the product appears standard.";
+      } else {
+        response = "Sorry, I can only answer basic product safety and price questions for now.";
       }
 
-      responseBox.innerText = "I couldn't understand the question clearly.";
+      document.getElementById("llmResponse").innerText = response;
     }
   </script>
 </body>
