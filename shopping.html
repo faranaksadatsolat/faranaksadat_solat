@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LLM Shopping Assistant (Smart Demo)</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
@@ -51,6 +51,7 @@
       padding: 10px;
       border-radius: 5px;
       min-height: 50px;
+      white-space: pre-wrap;
     }
     .chat-input {
       width: 100%;
@@ -154,16 +155,18 @@
 
       if (!ocrText) {
         response = "Please run OCR first.";
-      } else if (question.includes("how much") || question.includes("price") || question.includes("cost")) {
-        const priceMatch = ocrText.match(/₩\s?\d{1,6}|(\d{1,6})\s?원/);
-        response = priceMatch
-          ? `The product price is: ${priceMatch[0].replace(/\s+/g, '')}`
-          : "Price information not clearly detected.";
       } else if (question.includes("allergy") || question.includes("dangerous") || question.includes("safe")) {
         if (ocrText.includes("우유") || ocrText.includes("milk") || ocrText.includes("대두") || ocrText.includes("soy")) {
           response = "This product may cause allergic reactions in sensitive individuals.";
         } else {
           response = "No major allergens detected. Likely safe for most users.";
+        }
+      } else if (question.includes("how much") || question.includes("price") || question.includes("cost")) {
+        const priceMatch = ocrText.match(/₩\s?\d{1,3}(,\d{3})*|\d{1,3}(,\d{3})*\s?원/);
+        if (priceMatch) {
+          response = `The price is ${priceMatch[0]}.`;
+        } else {
+          response = "Price information not clearly detected.";
         }
       } else {
         response = "Based on label info, the product appears standard.";
