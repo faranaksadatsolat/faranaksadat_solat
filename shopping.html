@@ -1,135 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smartphone LLM Shopping Assistant</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Shopping Assistant</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f8f8f8;
-    }
-    .container {
-      max-width: 500px;
+      background: #f4f4f4;
+      padding: 10px;
+      max-width: 600px;
       margin: auto;
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-    h1 {
-      font-size: 1.5rem;
+    h2 {
       text-align: center;
     }
-    .section {
-      margin-bottom: 20px;
-    }
-    video, canvas {
-      width: 100%;
-      max-height: 300px;
-      border-radius: 10px;
-      margin-bottom: 10px;
-    }
     button {
-      display: inline-block;
-      margin: 5px 5px 10px 0;
-      padding: 10px 15px;
-      border: none;
-      border-radius: 5px;
-      background: #4CAF50;
+      background-color: #28a745;
       color: white;
+      border: none;
+      padding: 10px 16px;
+      margin: 10px 0;
+      border-radius: 6px;
       cursor: pointer;
     }
     button:hover {
-      background: #45a049;
+      opacity: 0.9;
     }
-    .output {
-      background: #eee;
-      padding: 10px;
-      border-radius: 5px;
-      min-height: 50px;
-    }
-    .chat-input {
+    textarea, input {
       width: 100%;
       padding: 10px;
-      margin-top: 10px;
-      border-radius: 5px;
+      margin: 10px 0;
+      border-radius: 6px;
       border: 1px solid #ccc;
+    }
+    .box {
+      background: white;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+    }
+    video, canvas, img {
+      width: 100%;
+      max-width: 100%;
+      border-radius: 8px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>LLM Shopping Assistant</h1>
 
-    <div class="section">
-      <video id="camera" autoplay playsinline></video>
-      <button onclick="capturePhoto()">Capture Label</button>
-      <canvas id="snapshot" style="display:none;"></canvas>
-    </div>
+  <h2>LLM Shopping Assistant</h2>
 
-    <div class="section">
-      <button onclick="runOCR()">Run OCR</button>
-      <div id="ocrResult" class="output">OCR Result will appear here...</div>
-    </div>
+  <div class="box">
+    <video id="video" autoplay playsinline></video>
+    <button onclick="capture()">Capture Label</button>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <img id="snapshot" src="">
+  </div>
 
-    <div class="section">
-      <button onclick="runTranslation()">Translate</button>
-      <div id="translationResult" class="output">Translation will appear here...</div>
-    </div>
+  <div class="box">
+    <button onclick="runOCR()">Run OCR</button>
+    <div id="ocrResult">OCR result will appear here...</div>
+  </div>
 
-    <div class="section">
-      <input id="question" class="chat-input" placeholder="Ask a question about the product..." />
-      <button onclick="askLLM()">Ask</button>
-      <div id="llmResponse" class="output">LLM response will appear here...</div>
-    </div>
+  <div class="box">
+    <button onclick="translate()">Translate</button>
+    <div id="translation">Translation will appear here...</div>
+  </div>
+
+  <div class="box">
+    <input type="text" id="question" placeholder="Ask a question about the product...">
+    <button onclick="askLLM()">Ask</button>
+    <div id="llmResponse">LLM response will appear here...</div>
   </div>
 
   <script>
-    const video = document.getElementById("camera");
-    const canvas = document.getElementById("snapshot");
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const snapshot = document.getElementById("snapshot");
+    const ctx = canvas.getContext("2d");
 
+    // Start camera
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
       .then(stream => {
         video.srcObject = stream;
-      })
-      .catch(err => {
-        console.error("Camera access error:", err);
       });
 
-    function capturePhoto() {
-      const context = canvas.getContext("2d");
+    // Capture image
+    function capture() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0);
-      canvas.style.display = "block";
-      alert("Image captured. You can now run OCR.");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = canvas.toDataURL("image/png");
+      snapshot.src = imageData;
     }
 
+    // Run OCR using Tesseract.js
     function runOCR() {
-      document.getElementById("ocrResult").innerText =
-        "Mock OCR: Contains sugar, wheat, soy, and milk. Made in Korea.";
+      document.getElementById("ocrResult").innerText = "Processing OCR...";
+      Tesseract.recognize(canvas, 'eng')
+        .then(({ data: { text } }) => {
+          document.getElementById("ocrResult").innerText = text.trim() || "No text found.";
+        })
+        .catch(err => {
+          document.getElementById("ocrResult").innerText = "Error running OCR.";
+          console.error(err);
+        });
     }
 
-    function runTranslation() {
-      document.getElementById("translationResult").innerText =
-        "Translated: This product may cause allergic reactions. Origin: South Korea.";
-    }
-
-    function askLLM() {
-      const question = document.getElementById("question").value;
-      let response = "";
-      if (question.toLowerCase().includes("allergy")) {
-        response = "Yes, this product contains common allergens such as milk and soy.";
-      } else if (question.toLowerCase().includes("origin")) {
-        response = "This product is manufactured in South Korea.";
-      } else {
-        response = "This product is healthy and safe for general consumption.";
+    // Translate (mock)
+    function translate() {
+      const text = document.getElementById("ocrResult").innerText;
+      if (!text || text === "OCR result will appear here...") {
+        document.getElementById("translation").innerText = "Please run OCR first.";
+        return;
       }
-      document.getElementById("llmResponse").innerText = response;
+      document.getElementById("translation").innerText = 
+        "Translated: This product may contain allergens such as wheat, soy, or milk. Please check ingredients carefully.";
+    }
+
+    // Ask question (mock LLM)
+    function askLLM() {
+      const q = document.getElementById("question").value;
+      if (!q.trim()) {
+        document.getElementById("llmResponse").innerText = "Please enter a question.";
+        return;
+      }
+      document.getElementById("llmResponse").innerText = 
+        `Answer: Based on product information, ${q.toLowerCase().includes("safe") ? "it appears safe for most users, but check allergy info." : "please check the label carefully."}`;
     }
   </script>
+
 </body>
 </html>
