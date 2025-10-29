@@ -1,176 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LLM Shopping Assistant • Multi-View (SIIF 2025)</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LLM Shopping Assistant — Multi-View (SIIF 2025)</title>
 
-  <!-- OCR -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
-  <!-- Free in-browser LLM (no API key) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.48/dist/web-llm.min.js"></script>
+<!-- OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+<!-- Free local LLM (beta) -->
+<script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.48/dist/web-llm.min.js"></script>
 
-  <style>
-    :root{
-      --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;
-      --accent:#6ee7b7;--accent2:#a78bfa;--warn:#ffd166;--danger:#ff6b6b
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans",Arial;
-      background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);color:var(--ink)
-    }
-    .wrap{max-width:1200px;margin:0 auto;padding:24px}
-    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
-    .brand{display:flex;gap:10px;align-items:center}
-    .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
-    h1{margin:0;font-size:clamp(18px,2.6vw,28px);font-weight:800}
-    .sub{color:var(--muted);font-size:12px}
-    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
-    @media(max-width:980px){.grid{grid-template-columns:1fr}.sticky{position:relative;top:auto}}
-    .card{background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);
-      border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .row>*{flex:1}
-    select,input[type="text"],textarea{
-      width:100%;background:#0b1430;color:var(--ink);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}
-    button{
-      border:0;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);
-      color:#071021;font-weight:700;cursor:pointer;box-shadow:0 10px 28px rgba(100,214,255,.25);transition:transform .06s}
-    button.secondary{background:#121a36;color:var(--ink);border:1px solid rgba(255,255,255,.12);box-shadow:none}
-    video,canvas,img{width:100%;max-height:360px;border-radius:14px;background:#0b1430;border:1px solid rgba(255,255,255,.08);object-fit:contain}
-    .progress{height:10px;background:#0b1430;border:1px solid rgba(255,255,255,.1);border-radius:999px;overflow:hidden}
-    .bar{height:100%;width:0;background:linear-gradient(90deg,#6ee7b7,#a78bfa)}
-    .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:10px}
-    .thumb{position:relative;border:1px solid rgba(255,255,255,.12);border-radius:12px;overflow:hidden;background:#0b1430}
-    .thumb img{width:100%;height:88px;object-fit:cover}
-    .thumb .meta{font-size:11px;color:#9fb3ff;padding:6px}
-    .thumb .actions{position:absolute;top:4px;right:4px;display:flex;gap:4px}
-    .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 10px;font-size:12px}
-    .out{white-space:pre-wrap;background:#0b1430;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;min-height:54px}
-    .kv{display:grid;grid-template-columns:150px 1fr;gap:6px;font-size:13px}
-    .kv div:nth-child(odd){color:#9fb3ff}
-    .sticky{position:sticky;top:16px}
-    .ok{color:#052;background:rgba(110,231,183,.14);border-color:rgba(110,231,183,.35)}
-    .warn{color:#502;background:rgba(255,209,102,.14);border-color:rgba(255,209,102,.38)}
-    .no{color:#520;background:rgba(255,107,107,.14);border-color:rgba(255,107,107,.38)}
-    .footer{margin-top:18px;color:#9fb3ff;font-size:12px;text-align:center}
-    .tip{font-size:12px;color:#9fb3ff}
-  </style>
+<style>
+  :root{--bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;--accent:#6ee7b7;--accent2:#a78bfa}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans",Arial;background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);color:var(--ink)}
+  .wrap{max-width:1200px;margin:0 auto;padding:24px}
+  header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .brand{display:flex;gap:10px;align-items:center}
+  .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+  h1{margin:0;font-size:clamp(18px,2.6vw,28px);font-weight:800}
+  .sub{color:var(--muted);font-size:12px}
+  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}.sticky{position:relative;top:auto}}
+  .card{background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .row>*{flex:1}
+  select,input[type="text"]{width:100%;background:#0b1430;color:var(--ink);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}
+  button{border:0;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);color:#071021;font-weight:700;cursor:pointer;box-shadow:0 10px 28px rgba(100,214,255,.25)}
+  button.secondary{background:#121a36;color:var(--ink);border:1px solid rgba(255,255,255,.12);box-shadow:none}
+  .progress{height:10px;background:#0b1430;border:1px solid rgba(255,255,255,.1);border-radius:999px;overflow:hidden}
+  .bar{height:100%;width:0;background:linear-gradient(90deg,#6ee7b7,#a78bfa)}
+  /* video container to show zoomed view on mobile */
+  .vwrap{position:relative;width:100%;height:360px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0b1430}
+  video{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%); /* scaled via JS on mobile */}
+  canvas,img{width:100%;max-height:360px;border-radius:14px;background:#0b1430;border:1px solid rgba(255,255,255,.08);object-fit:contain}
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:10px}
+  .thumb{position:relative;border:1px solid rgba(255,255,255,.12);border-radius:12px;overflow:hidden;background:#0b1430}
+  .thumb img{width:100%;height:88px;object-fit:cover}
+  .thumb .meta{font-size:11px;color:#9fb3ff;padding:6px}
+  .thumb .actions{position:absolute;top:4px;right:4px}
+  .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 10px;font-size:12px}
+  .out{white-space:pre-wrap;background:#0b1430;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;min-height:54px}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:6px;font-size:13px}
+  .kv div:nth-child(odd){color:#9fb3ff}
+  .sticky{position:sticky;top:16px}
+  .ok{color:#052;background:rgba(110,231,183,.14);border-color:rgba(110,231,183,.35)}
+  .warn{color:#502;background:rgba(255,209,102,.14);border-color:rgba(255,209,102,.38)}
+  .no{color:#520;background:rgba(255,107,107,.14);border-color:rgba(255,107,107,.38)}
+  .footer{margin-top:18px;color:#9fb3ff;font-size:12px;text-align:center}
+  .tip{font-size:12px;color:#9fb3ff}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
-        <div>
-          <h1>LLM Shopping Assistant — Multi-View Demo (SIIF 2025)</h1>
-          <div class="sub">Inventor: <strong>Faranaksadat Solat</strong> • Patent No. <span>10-2865941</span> • Category N — Information Technology</div>
-        </div>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>LLM Shopping Assistant — Multi-View (SIIF 2025)</h1>
+        <div class="sub">Inventor: <strong>Faranaksadat Solat</strong> • Patent No. 10-2865941 • Category N</div>
       </div>
-      <div class="pill">🔒 On-device OCR • 🧠 Free Local AI</div>
-    </header>
-
-    <div class="grid">
-      <!-- LEFT -->
-      <section class="card" aria-label="Capture and analyze">
-        <h2>1) Capture label (multi-view)</h2>
-        <div class="row">
-          <select id="cameraSelect"></select>
-          <button id="startCam">Start Camera</button>
-          <button id="stopCam" class="secondary">Stop</button>
-          <label class="pill" for="fileInput">Upload Image <input type="file" id="fileInput" accept="image/*" style="display:none"></label>
-        </div>
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="canvas" hidden></canvas>
-        <div class="row">
-          <button id="addView">📸 Add View</button>
-          <button id="clearAll" class="secondary">Clear All</button>
-        </div>
-        <div id="gallery" class="thumbs" aria-live="polite"></div>
-        <div class="tip" style="margin-top:8px">Add 2–5 sides of the package, then run OCR.</div>
-
-        <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:14px 0"/>
-
-        <h2>2) OCR all views & smart merge</h2>
-        <div class="row">
-          <select id="lang">
-            <option value="eng+kor">English + Korean</option>
-            <option value="eng">English</option>
-            <option value="kor">Korean</option>
-            <option value="eng+kor+fas">English + Korean + Persian (beta)</option>
-          </select>
-          <button id="runOCR">Run OCR (All Views)</button>
-        </div>
-        <div class="progress"><div id="pbar" class="bar"></div></div>
-        <div id="ocrOut" class="out">OCR output log…</div>
-        <div class="row" style="margin-top:8px">
-          <button id="copyOCR" class="secondary">Copy All Text</button>
-          <button id="downloadTxt" class="secondary">Download .txt</button>
-        </div>
-
-        <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:14px 0"/>
-
-        <h2>3) Ask anything</h2>
-        <div class="row">
-          <input id="q" type="text" placeholder="Ask about this product… (e.g., قیمت؟, 얼마예요?, How much?)" />
-          <button id="askFree">Ask with AI</button>
-        </div>
-        <div id="qaOut" class="out">Assistant will respond here…</div>
-      </section>
-
-      <!-- RIGHT -->
-      <aside class="card sticky" aria-label="Profile and verdict">
-        <h2>Buyer profile</h2>
-        <div class="row">
-          <label class="pill"><input type="checkbox" class="allergen" value="milk"> Milk / 우유</label>
-          <label class="pill"><input type="checkbox" class="allergen" value="soy"> Soy / 대두</label>
-          <label class="pill"><input type="checkbox" class="allergen" value="nuts"> Tree Nuts / 견과류</label>
-          <label class="pill"><input type="checkbox" class="allergen" value="peanut"> Peanut / 땅콩</label>
-          <label class="pill"><input type="checkbox" class="allergen" value="gluten"> Gluten / 글루텐</label>
-          <label class="pill"><input type="checkbox" class="allergen" value="egg"> Egg / 계란</label>
-          <label class="pill"><input type="checkbox" class="allergen" value="shellfish"> Shellfish</label>
-        </div>
-
-        <h2 style="margin-top:12px">Auto-verdict</h2>
-        <div id="verdict" class="out">Add 2–5 views and run OCR to see the verdict.</div>
-
-        <h2 style="margin-top:12px">Quick facts (merged)</h2>
-        <div class="kv" id="facts">
-          <div>Detected Price</div><div id="fPrice">—</div>
-          <div>Expiry</div><div id="fExpiry">—</div>
-          <div>Manufactured</div><div id="fMfg">—</div>
-          <div>Allergens</div><div id="fAllergen">—</div>
-          <div>Origin</div><div id="fOrigin">—</div>
-          <div>Views</div><div id="fViews">0</div>
-        </div>
-
-        <div class="footer">© 2025 Faranaksadat Solat • Patent 10-2865941 • SIIF 2025 Multi-View Demo</div>
-      </aside>
     </div>
+    <div class="pill">🔒 On-device OCR • 🧠 Local AI (beta)</div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT -->
+    <section class="card">
+      <h2>1) Capture label (multi-view)</h2>
+      <div class="row">
+        <select id="cameraSelect"></select>
+        <button id="startCam">Start Camera</button>
+        <button id="stopCam" class="secondary">Stop</button>
+        <label class="pill" for="fileInput">Upload Image <input id="fileInput" type="file" accept="image/*" style="display:none"></label>
+      </div>
+      <div class="vwrap"><video id="video" autoplay playsinline muted></video></div>
+      <canvas id="canvas" hidden></canvas>
+      <div class="row">
+        <button id="addView">📸 Add View</button>
+        <button id="clearAll" class="secondary">Clear All</button>
+      </div>
+      <div id="gallery" class="thumbs"></div>
+      <div class="tip" style="margin-top:8px">Add 2–5 sides of the package, then run OCR.</div>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:14px 0"/>
+
+      <h2>2) OCR all views & smart merge</h2>
+      <!-- Only beta 3-language mode kept -->
+      <select id="lang" style="display:none"><option value="eng+kor+fas" selected>eng+kor+fas</option></select>
+      <div class="row"><button id="runOCR">Run OCR (All Views)</button></div>
+      <div class="progress"><div id="pbar" class="bar"></div></div>
+      <div id="ocrOut" class="out">OCR output log…</div>
+      <div class="row" style="margin-top:8px">
+        <button id="copyOCR" class="secondary">Copy All Text</button>
+        <button id="downloadTxt" class="secondary">Download .txt</button>
+      </div>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:14px 0"/>
+
+      <h2>3) Ask anything</h2>
+      <div class="row">
+        <input id="q" type="text" placeholder="Ask about this product… (e.g., قیمت؟ / 얼마예요? / How much?)"/>
+        <button id="askFree">Ask with AI</button>
+      </div>
+      <div id="qaOut" class="out">Type a question above first.</div>
+    </section>
+
+    <!-- RIGHT -->
+    <aside class="card sticky">
+      <h2>Buyer profile</h2>
+      <div class="row">
+        <label class="pill"><input type="checkbox" class="allergen" value="milk"> Milk / 우유</label>
+        <label class="pill"><input type="checkbox" class="allergen" value="soy"> Soy / 대두</label>
+        <label class="pill"><input type="checkbox" class="allergen" value="nuts"> Tree Nuts / 견과류</label>
+        <label class="pill"><input type="checkbox" class="allergen" value="peanut"> Peanut / 땅콩</label>
+        <label class="pill"><input type="checkbox" class="allergen" value="gluten"> Gluten / 글루텐</label>
+        <label class="pill"><input type="checkbox" class="allergen" value="egg"> Egg / 계란</label>
+        <label class="pill"><input type="checkbox" class="allergen" value="shellfish"> Shellfish</label>
+      </div>
+
+      <h2 style="margin-top:12px">Auto-verdict</h2>
+      <div id="verdict" class="out">Add views and run OCR to see the verdict.</div>
+
+      <h2 style="margin-top:12px">Quick facts (merged)</h2>
+      <div class="kv" id="facts">
+        <div>Detected Price</div><div id="fPrice">—</div>
+        <div>Expiry</div><div id="fExpiry">—</div>
+        <div>Manufactured</div><div id="fMfg">—</div>
+        <div>Allergens</div><div id="fAllergen">—</div>
+        <div>Origin</div><div id="fOrigin">—</div>
+        <div>Views</div><div id="fViews">0</div>
+      </div>
+
+      <div class="footer">© 2025 Faranaksadat Solat • Patent 10-2865941 • SIIF 2025 Demo</div>
+    </aside>
   </div>
+</div>
 
 <script>
-/* ========= helpers & state ========= */
+/* ===== helpers & state ===== */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-const state = {
-  stream:null, deviceId:null,
-  images:[],
-  ocrLogs:[],
-  ocrMerged:{ text:'', price:null, expiry:null, mfg:null, allergens:new Set(), origin:null }
-};
+const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+const MOBILE_ZOOM = 1.5; // visual + capture crop
+const state = { stream:null, deviceId:null, images:[], ocrMerged:{ text:'', price:null, expiry:null, mfg:null, allergens:new Set(), origin:null }, ocrLogs:[] };
 function fmtKRW(n){ if(n==null) return '—'; return new Intl.NumberFormat('ko-KR').format(Math.round(n))+'원'; }
-function fmtPriceObj(p){
-  if(!p) return '—';
-  const sym = {KRW:'₩', USD:'$', EUR:'€', GBP:'£', JPY:'¥', IRR:'﷼'}[p.currency] || p.currency;
-  const n = (p.currency === 'KRW')
-    ? new Intl.NumberFormat('ko-KR').format(Math.round(p.amount))
-    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(p.amount);
-  return `${sym}${n} (${p.currency})`;
-}
+function fmtPriceObj(p){ if(!p) return '—'; const sym={KRW:'₩',USD:'$',EUR:'€',GBP:'£',JPY:'¥',IRR:'﷼'}[p.currency]||p.currency; const n=p.currency==='KRW'?new Intl.NumberFormat('ko-KR').format(Math.round(p.amount)):new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(p.amount); return `${sym}${n} (${p.currency})`; }
 
-/* ========= camera ========= */
+/* ===== camera (mobile: back + zoomed view) ===== */
 async function listCameras(){
   const dev = await navigator.mediaDevices.enumerateDevices();
   const vids = dev.filter(d=>d.kind==='videoinput');
@@ -182,48 +159,66 @@ async function listCameras(){
 async function startCamera(){
   try{
     if(state.stream) stopCamera();
-    const c = { video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} } };
-    if(state.deviceId) c.video.deviceId = { exact: state.deviceId };
-    const s = await navigator.mediaDevices.getUserMedia(c);
-    state.stream = s; $('#video').srcObject = s;
-  }catch(e){ alert('Camera error: '+ e.message); }
+    const constraints = { video:{ facingMode:{ ideal:'environment' }, width:{ideal:1920}, height:{ideal:1080} } };
+    if(state.deviceId) constraints.video.deviceId = { exact: state.deviceId };
+    const s = await navigator.mediaDevices.getUserMedia(constraints);
+    state.stream = s;
+    const v = $('#video'); v.srcObject = s;
+    // visual zoom for mobile
+    if(isMobile){
+      v.style.width='calc(100% * '+MOBILE_ZOOM+')';
+      v.style.height='auto';
+    } else {
+      v.style.width='100%'; v.style.height='auto';
+    }
+  }catch(e){ alert('Camera error: '+e.message); }
 }
 function stopCamera(){ if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; } $('#video').srcObject=null; }
 $('#cameraSelect').addEventListener('change',e=>{ state.deviceId=e.target.value; startCamera(); });
 $('#startCam').addEventListener('click', startCamera);
 $('#stopCam').addEventListener('click', stopCamera);
 
-/* ========= capture ========= */
+/* ===== capture (apply same mobile zoom as crop) ===== */
+function captureFrom(src){
+  const fullW = src.videoWidth||src.naturalWidth, fullH = src.videoHeight||src.naturalHeight;
+  let sx=0, sy=0, sw=fullW, sh=fullH;
+  if(isMobile){ // crop center
+    const factor = MOBILE_ZOOM;
+    const cw = Math.floor(fullW / factor), ch = Math.floor(fullH / factor);
+    sx = Math.floor((fullW - cw)/2); sy = Math.floor((fullH - ch)/2);
+    sw = cw; sh = ch;
+  }
+  const c=document.createElement('canvas'); c.width=sw; c.height=sh;
+  const ctx=c.getContext('2d'); ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
+  return c.toDataURL('image/png');
+}
 function addImageFromSource(src){
-  const c=document.createElement('canvas');
-  const w=src.videoWidth||src.naturalWidth, h=src.videoHeight||src.naturalHeight;
-  c.width=w; c.height=h; const ctx=c.getContext('2d'); ctx.drawImage(src,0,0,w,h);
-  state.images.push({ data: c.toDataURL('image/png') });
+  const data = captureFrom(src);
+  state.images.push({ data });
   renderGallery(); updateFacts();
 }
 function renderGallery(){
   const g=$('#gallery'); g.innerHTML='';
   state.images.forEach((img,i)=>{
     const el=document.createElement('div'); el.className='thumb';
-    el.innerHTML = `<div class="actions"><button class="secondary" data-i="${i}" data-act="del">✕</button></div>
-                    <img src="${img.data}" alt="view ${i+1}"><div class="meta">View ${i+1}</div>`;
+    el.innerHTML=`<div class="actions"><button class="secondary" data-i="${i}" data-act="del">✕</button></div>
+                  <img src="${img.data}" alt="view ${i+1}"><div class="meta">View ${i+1}</div>`;
     g.appendChild(el);
   });
   g.querySelectorAll('button[data-act="del"]').forEach(b=>{
-    b.onclick = (e)=>{ const idx=+e.target.dataset.i; state.images.splice(idx,1); renderGallery(); updateFacts(); };
+    b.onclick = e=>{ const idx=+e.target.dataset.i; state.images.splice(idx,1); renderGallery(); updateFacts(); };
   });
 }
 $('#addView').addEventListener('click', ()=>{
   const v=$('#video');
-  if(!state.stream && v.srcObject==null){ alert('Start the camera or upload an image.'); return; }
+  if(!state.stream && !v.srcObject){ alert('Start the camera or upload an image.'); return; }
   if(state.images.length>=5){ alert('Up to 5 views supported.'); return; }
   addImageFromSource(v);
 });
-$('#clearAll').addEventListener('click',()=>{
-  state.images=[]; state.ocrLogs=[];
-  state.ocrMerged={ text:'', price:null, expiry:null, mfg:null, allergens:new Set(), origin:null };
+$('#clearAll').addEventListener('click', ()=>{
+  state.images=[]; state.ocrLogs=[]; state.ocrMerged={ text:'', price:null, expiry:null, mfg:null, allergens:new Set(), origin:null };
   renderGallery(); $('#ocrOut').textContent=''; updateFacts();
-  $('#verdict').textContent='Add 2–5 views and run OCR to see the verdict.';
+  $('#verdict').textContent='Add views and run OCR to see the verdict.';
 });
 $('#fileInput').addEventListener('change',ev=>{
   const f=ev.target.files?.[0]; if(!f) return;
@@ -232,163 +227,84 @@ $('#fileInput').addEventListener('change',ev=>{
   img.src=url;
 });
 
-/* ========= normalization / parsers ========= */
-function normalizeForDates(s){
-  return (s||'').replace(/[O○]/g,'0').replace(/[lI|]/g,'1').replace(/S/g,'5').replace(/B/g,'8');
-}
-function findAllDates(raw){
-  const t=normalizeForDates(raw); const out=[];
-  const rx=/(\b20\d{2})[.\/\- ]?([01]?\d)[.\/\- ]?([0-3]?\d)\b/g; let m;
-  while((m=rx.exec(t))){ const y=+m[1], mo=(+m[2])-1, d=+m[3]; const dt=new Date(y,mo,d); if(!isNaN(dt)) out.push({dt, idx:m.index}); }
-  return out;
-}
+/* ===== text utils / parsers ===== */
+function normalizeForDates(s){ return (s||'').replace(/[O○]/g,'0').replace(/[lI|]/g,'1').replace(/S/g,'5').replace(/B/g,'8'); }
+function findAllDates(raw){ const t=normalizeForDates(raw); const out=[]; const rx=/(\b20\d{2})[.\/\- ]?([01]?\d)[.\/\- ]?([0-3]?\d)\b/g; let m; while((m=rx.exec(t))){ const y=+m[1],mo=(+m[2])-1,d=+m[3]; const dt=new Date(y,mo,d); if(!isNaN(dt)) out.push({dt,idx:m.index}); } return out; }
 function classifyDates(t){
-  const dates=findAllDates(t); let expiry=null, mfg=null;
+  const dates=findAllDates(t); let expiry=null,mfg=null;
   const lower=normalizeForDates(t).toLowerCase();
   const expKeys=[/유통기한|소비기한|expiry|exp\b|best\s*before/i];
   const mfgKeys=[/제조일|제조|생산일|생산|mfg\b|manufactured|made\s*on/i];
   for(const d of dates){
     const w=lower.slice(Math.max(0,d.idx-24), d.idx+24);
-    if(expKeys.some(rx=>rx.test(w))) expiry=d.dt;
-    if(mfgKeys.some(rx=>rx.test(w))) mfg=d.dt;
+    if(expKeys.some(r=>r.test(w))) expiry=d.dt;
+    if(mfgKeys.some(r=>r.test(w))) mfg=d.dt;
   }
   if(!expiry){ expiry = dates.map(x=>x.dt).sort((a,b)=>a-b).slice(-1)[0]; }
   if(!mfg && dates.length>1){ mfg = dates.map(x=>x.dt).sort((a,b)=>a-b)[0]; }
   return { expiry, mfg };
 }
-
-/* ---- multi-currency price parser (with filters; prevents 3₩) ---- */
+/* price (multi-currency) with KRW small-value filter */
 function parseCurrencyAmount(rawText){
-  if(!rawText) return null;
-  const t = rawText.replace(/\s+/g, '');
-
-  const rxs = [
+  if(!rawText) return null; const t=rawText.replace(/\s+/g,'');
+  const rxs=[
     /([₩$€£¥﷼])\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)/g,
     /(KRW|USD|EUR|GBP|JPY|IRR|RIAL)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)/gi,
     /([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)\s*(₩|원|W|USD|EUR|GBP|JPY|IRR|RIAL)/gi
   ];
-
-  const curMap = {
-    '₩':'KRW','원':'KRW','W':'KRW','$':'USD','USD':'USD','€':'EUR','EUR':'EUR',
-    '£':'GBP','GBP':'GBP','¥':'JPY','JPY':'JPY','﷼':'IRR','IRR':'IRR','RIAL':'IRR'
-  };
-
-  const found = [];
-
-  for(const rx of rxs){
-    let m; rx.lastIndex = 0;
-    while((m = rx.exec(t))){
-      let sym = m[1], amt = m[2];
-      if(/[0-9]/.test(m[1])) { sym = m[2]; amt = m[1]; }
-      const currency = (curMap[(sym||'').toUpperCase()] || sym || '').toUpperCase();
-      const amount = parseFloat(String(amt).replace(/,/g,''));
-      if(!isFinite(amount)) continue;
-
-      // filter too-small KRW values like 3₩
-      if(currency === 'KRW' && amount < 100) continue;
-      // reasonable upper cap
-      if(amount > 2e7) continue;
-
-      found.push({
-        amount, currency,
-        hasSymbol: /[₩$€£¥﷼]|원|W/.test(sym||'')
-      });
-    }
-  }
+  const curMap={'₩':'KRW','원':'KRW','W':'KRW','$':'USD','USD':'USD','€':'EUR','EUR':'EUR','£':'GBP','GBP':'GBP','¥':'JPY','JPY':'JPY','﷼':'IRR','IRR':'IRR','RIAL':'IRR'};
+  const found=[];
+  for(const rx of rxs){ let m; rx.lastIndex=0; while((m=rx.exec(t))){
+    let sym=m[1], amt=m[2]; if(/[0-9]/.test(m[1])){sym=m[2]; amt=m[1];}
+    const currency=(curMap[(sym||'').toUpperCase()]||sym||'').toUpperCase();
+    const amount=parseFloat(String(amt).replace(/,/g,'')); if(!isFinite(amount)) continue;
+    if(currency==='KRW' && amount<100) continue;
+    if(amount>2e7) continue;
+    found.push({amount,currency,hasSymbol:/[₩$€£¥﷼]|원|W/.test(sym||'')});
+  }}
   if(!found.length) return null;
-
-  found.sort((a,b)=>{
-    if(a.hasSymbol!==b.hasSymbol) return a.hasSymbol? -1 : 1;
-    return b.amount - a.amount;
-  });
+  found.sort((a,b)=>{ if(a.hasSymbol!==b.hasSymbol) return a.hasSymbol?-1:1; return b.amount-a.amount; });
   return found[0];
 }
-
 /* allergens & origin */
-const ALLERGENS={
-  milk:[/\bmilk\b/i,/우유/,/乳/],
-  soy:[/\bsoy\b/i,/대두/],
-  nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],
-  peanut:[/\bpeanut/i,/땅콩/],
-  gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],
-  egg:[/\begg\b/i,/계란/,/난류/],
-  shellfish:[/shrimp/i,/crab/i,/lobster/i,/shellfish/i,/조개/,/새우/,/게/]
-};
+const ALLERGENS={milk:[/\bmilk\b/i,/우유/,/乳/],soy:[/\bsoy\b/i,/대두/],nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],peanut:[/\bpeanut/i,/땅콩/],gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],egg:[/\begg\b/i,/계란/,/난류/],shellfish:[/shrimp/i,/crab/i,/lobster/i,/shellfish/i,/조개/,/새우/,/게/]};
 function detectAllergens(t){ const s=new Set(); for(const[k,arr] of Object.entries(ALLERGENS)) if(arr.some(rx=>rx.test(t))) s.add(k); return s; }
-const ORIGINS=[
-  {k:/한국|대한민국|국내산|made in korea|korea/i,v:'Korea'},
-  {k:/usa|미국|made in usa/i,v:'USA'},
-  {k:/japan|일본/i,v:'Japan'},
-  {k:/china|중국/i,v:'China'},
-  {k:/iran|이란/i,v:'Iran'}
-];
-function detectOrigin(t){ for(const o of ORIGINS) if(o.k.test(t)) return o.v; return null; }
+const ORIGINS=[{k:/한국|대한민국|국내산|made in korea|korea/i,v:'Korea'},{k:/usa|미국|made in usa/i,v:'USA'},{k:/japan|일본/i,v:'Japan'},{k:/china|중국/i,v:'China'},{k:/iran|이란/i,v:'Iran'}];
+function detectOrigin(t){ for(const o of ORIGINS){ if(o.k.test(t)) return o.v; } return null; }
 
-/* ========= OCR all views ========= */
+/* ===== OCR all views ===== */
 async function runOCRAll(){
   if(state.images.length===0){ alert('Add at least 1 view.'); return; }
-  const lang = $('#lang').value || 'eng+kor';
-  const pbar = $('#pbar');
-  state.ocrLogs=[]; let mergedText=''; let mergedPrice=null; let mergedExpiry=null; let mergedMfg=null;
-  let mergedAllergens=new Set(); const originVotes={}; let idx=0;
+  const lang = 'eng+kor+fas';
+  const pbar = $('#pbar'); state.ocrLogs=[]; let mergedText=''; let mergedPrice=null; let mergedExpiry=null; let mergedMfg=null; let mergedAllergens=new Set(); const originVotes={}; let idx=0;
 
   for(const img of state.images){
-    idx++;
-    const base=document.createElement('canvas');
-    const ctx=base.getContext('2d',{ willReadFrequently:true });
-    await new Promise(res=>{
-      const im=new Image();
-      im.onload=()=>{ base.width=im.naturalWidth; base.height=im.naturalHeight;
-        ctx.filter='grayscale(1) contrast(1.95) brightness(1.28)';
-        ctx.drawImage(im,0,0,base.width,base.height); res();
-      };
-      im.src=img.data;
-    });
+    idx++; const base=document.createElement('canvas'); const ctx=base.getContext('2d',{willReadFrequently:true});
+    await new Promise(res=>{ const im=new Image(); im.onload=()=>{ base.width=im.naturalWidth; base.height=im.naturalHeight; ctx.filter='grayscale(1) contrast(1.95) brightness(1.28)'; ctx.drawImage(im,0,0,base.width,base.height); res(); }; im.src=img.data; });
 
-    // Pass 1: full
-    const pass1 = await Tesseract.recognize(base, lang, {
-      logger:m=>{ if(m.status==='recognizing text'){ pbar.style.width=Math.round(((idx-1)+m.progress)/state.images.length*100)+'%'; } }
-    });
-    let text = (pass1.data.text||'').trim();
+    const pass1 = await Tesseract.recognize(base, lang, { logger:m=>{ if(m.status==='recognizing text'){ pbar.style.width=Math.round(((idx-1)+m.progress)/state.images.length*100)+'%'; } } });
+    let text=(pass1.data.text||'').trim();
 
-    // Pass 2: top ROI (dates)
-    const roi=document.createElement('canvas');
-    roi.width=base.width; roi.height=Math.floor(base.height*0.5);
-    const rctx=roi.getContext('2d',{ willReadFrequently:true });
-    rctx.filter='grayscale(1) contrast(2.0) brightness(1.30)';
-    rctx.drawImage(base,0,0,base.width,roi.height,0,0,roi.width,roi.height);
-    const pass2 = await Tesseract.recognize(roi,'eng',{ tessedit_char_whitelist:'0123456789.-/ 원W' });
-    text += '\n' + (pass2.data.text||'');
+    const roi=document.createElement('canvas'); roi.width=base.width; roi.height=Math.floor(base.height*0.5);
+    const rctx=roi.getContext('2d',{willReadFrequently:true}); rctx.filter='grayscale(1) contrast(2.0) brightness(1.30)'; rctx.drawImage(base,0,0,base.width,roi.height,0,0,roi.width,roi.height);
+    const pass2=await Tesseract.recognize(roi,'eng',{tessedit_char_whitelist:'0123456789.-/ 원W'}); text+='\n'+(pass2.data.text||'');
 
-    // Pass 3: center ROI (price/currency)
-    const roi2=document.createElement('canvas');
-    roi2.width=Math.floor(base.width*0.7); roi2.height=Math.floor(base.height*0.7);
-    const r2=roi2.getContext('2d',{ willReadFrequently:true });
-    r2.filter='grayscale(1) contrast(2.1) brightness(1.35)';
-    r2.drawImage(base, base.width*0.15, base.height*0.15, base.width*0.7, base.height*0.7, 0,0,roi2.width,roi2.height);
-    const pass3 = await Tesseract.recognize(roi2,'eng+kor',{
-      tessedit_char_whitelist:'0123456789,.- ₩$€£¥원WUSDKRWEURGBPJPYIRR﷼RIAL'
-    });
-    text += '\n' + (pass3.data.text||'');
+    const roi2=document.createElement('canvas'); roi2.width=Math.floor(base.width*0.7); roi2.height=Math.floor(base.height*0.7);
+    const r2=roi2.getContext('2d',{willReadFrequently:true}); r2.filter='grayscale(1) contrast(2.1) brightness(1.35)';
+    r2.drawImage(base,base.width*0.15,base.height*0.15,base.width*0.7,base.height*0.7,0,0,roi2.width,roi2.height);
+    const pass3=await Tesseract.recognize(roi2,'eng+kor',{tessedit_char_whitelist:'0123456789,.- ₩$€£¥원WUSDKRWEURGBPJPYIRR﷼RIAL'}); text+='\n'+(pass3.data.text||'');
 
-    const {expiry,mfg} = classifyDates(text);
-    const priceObj = parseCurrencyAmount(text);
-    const allergens = detectAllergens(text);
-    const origin = detectOrigin(text);
+    const {expiry,mfg}=classifyDates(text); const priceObj=parseCurrencyAmount(text); const allergens=detectAllergens(text); const origin=detectOrigin(text);
 
-    mergedText += `\n[View ${idx}]\n` + text + "\n";
-    if(priceObj && !mergedPrice) mergedPrice = priceObj;               // first valid price
-    if(expiry) mergedExpiry = (!mergedExpiry || expiry>mergedExpiry) ? expiry : mergedExpiry;
-    if(mfg) mergedMfg = (!mergedMfg || mfg<mergedMfg) ? mfg : mergedMfg;
-    allergens.forEach(a=>mergedAllergens.add(a));
-    if(origin){ originVotes[origin]=(originVotes[origin]||0)+1; }
-
+    mergedText += `\n[View ${idx}]\n`+text+"\n";
+    if(priceObj && !mergedPrice) mergedPrice=priceObj;
+    if(expiry) mergedExpiry = (!mergedExpiry||expiry>mergedExpiry)? expiry:mergedExpiry;
+    if(mfg) mergedMfg = (!mergedMfg||mfg<mergedMfg)? mfg:mergedMfg;
+    allergens.forEach(a=>mergedAllergens.add(a)); if(origin){ originVotes[origin]=(originVotes[origin]||0)+1; }
     state.ocrLogs.push({i:idx,text,price:priceObj,expiry,mfg,allergens:[...allergens],origin});
   }
-
-  let majorityOrigin=null,maxV=0; for(const[k,v] of Object.entries(originVotes)){ if(v>maxV){maxV=v; majorityOrigin=k;} }
-  state.ocrMerged={ text:mergedText, price:mergedPrice, expiry:mergedExpiry, mfg:mergedMfg, allergens:mergedAllergens, origin:majorityOrigin };
-
+  let origin=null,max=0; for(const[k,v] of Object.entries(originVotes)){ if(v>max){max=v; origin=k;} }
+  state.ocrMerged={ text:mergedText, price:mergedPrice, expiry:mergedExpiry, mfg:mergedMfg, allergens:mergedAllergens, origin };
   $('#ocrOut').textContent = state.ocrLogs.map(v=>`View ${v.i}: price=${v.price?fmtPriceObj(v.price):'—'}, expiry=${v.expiry?v.expiry.toISOString().slice(0,10):'—'}, mfg=${v.mfg?v.mfg.toISOString().slice(0,10):'—'}, origin=${v.origin||'—'}, allergens=${v.allergens.join(', ')||'—'}`).join('\n');
   updateFacts(); verdict(); pbar.style.width='0%';
 }
@@ -396,42 +312,32 @@ $('#runOCR').addEventListener('click', runOCRAll);
 $('#copyOCR').addEventListener('click', async()=>{ const t=(state.ocrMerged.text||'').trim(); await navigator.clipboard.writeText(t); alert('All OCR text copied.'); });
 $('#downloadTxt').addEventListener('click', ()=>{ const blob=new Blob([state.ocrMerged.text||''],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ocr_all_views.txt'; a.click(); URL.revokeObjectURL(a.href); });
 
-/* ========= facts + verdict ========= */
+/* ===== facts & verdict ===== */
 function updateFacts(){
   const m=state.ocrMerged||{};
-  $('#fPrice').textContent = fmtPriceObj(m.price);
-  $('#fExpiry').textContent = m.expiry ? m.expiry.toISOString().slice(0,10) : '—';
-  $('#fMfg').textContent    = m.mfg ? m.mfg.toISOString().slice(0,10) : '—';
-  $('#fAllergen').textContent = (m.allergens && m.allergens.size) ? [...m.allergens].join(', ') : '—';
-  $('#fOrigin').textContent = m.origin || '—';
-  $('#fViews').textContent  = state.images.length;
+  $('#fPrice').textContent=fmtPriceObj(m.price);
+  $('#fExpiry').textContent=m.expiry?m.expiry.toISOString().slice(0,10):'—';
+  $('#fMfg').textContent=m.mfg?m.mfg.toISOString().slice(0,10):'—';
+  $('#fAllergen').textContent=(m.allergens&&m.allergens.size)?[...m.allergens].join(', '):'—';
+  $('#fOrigin').textContent=m.origin||'—';
+  $('#fViews').textContent=state.images.length;
 }
 function verdict(){
-  const t=(state.ocrMerged.text||'').toLowerCase();
   const userAll=$$('.allergen:checked').map(x=>x.value);
-  const expiry=state.ocrMerged.expiry;
-  let issues=[];
-  const found=[...(state.ocrMerged.allergens||[])];
-  const conflict=found.filter(a=>userAll.includes(a)); if(conflict.length) issues.push('Allergen conflict: '+conflict.join(', '));
-  if(expiry){ const days=Math.ceil((expiry-new Date())/86400000); if(days<0) issues.push('Expired'); }
-  else issues.push('No expiry date found');
-  if(/오염|변색|손상|damaged|leak|bulge|swollen/i.test(t)) issues.push('Quality issue keywords present');
-
+  const m=state.ocrMerged; let issues=[];
+  const conflict=[...(m.allergens||[])].filter(a=>userAll.includes(a)); if(conflict.length) issues.push('Allergen conflict: '+conflict.join(', '));
+  if(m.expiry){ const days=Math.ceil((m.expiry-new Date())/86400000); if(days<0) issues.push('Expired'); } else issues.push('No expiry date found');
   const box=$('#verdict');
   if(issues.length===0) box.innerHTML=`<span class="pill ok">✅ Recommended</span> Looks good for your profile.`;
-  else if(issues.some(s=>/Expired|Allergen|Quality/.test(s))) box.innerHTML=`<span class="pill no">⛔ Not Recommended</span>\n- `+issues.join('\n- ');
+  else if(issues.some(s=>/Expired|Allergen/.test(s))) box.innerHTML=`<span class="pill no">⛔ Not Recommended</span>\n- `+issues.join('\n- ');
   else box.innerHTML=`<span class="pill warn">⚠️ Caution</span>\n- `+issues.join('\n- ');
 }
 $$('.allergen').forEach(cb=>cb.addEventListener('change', verdict));
 
-/* ========= language & intent detection ========= */
-function detectLangTag(q){
-  if(/[آ-یۀٔ‌]/.test(q)) return 'FA';
-  if(/[\u3131-\uD79D]/.test(q)) return 'KR';
-  return 'EN';
-}
-function detectIntent(q){
-  const s = (q||'').toLowerCase();
+/* ===== language & intent detection ===== */
+function detectLang(q){ if(/[آ-یۀٔ‌]/.test(q)) return 'FA'; if(/[\u3131-\uD79D]/.test(q)) return 'KR'; return 'EN'; }
+function intent(q){
+  const s=(q||'').toLowerCase();
   if(/price|how much|얼마|가격|قیمت/.test(s)) return 'price';
   if(/expiry|expiration|유통기한|소비기한|انقضا/.test(s)) return 'expiry';
   if(/manufactured|mfg|제조|생산|تولید/.test(s)) return 'mfg';
@@ -441,100 +347,58 @@ function detectIntent(q){
   return 'general';
 }
 
-/* ========= Free AI (WebLLM – Phi-3 mini) ========= */
-let chat=null, modelReady=false, modelName='Phi-3-mini-4k-instruct-q4f16_1-MLC';
+/* ===== local AI (beta) ===== */
+let chat=null, ready=false, modelName='Phi-3-mini-4k-instruct-q4f16_1-MLC'; // single beta model
 async function ensureModel(){
-  if(modelReady) return;
+  if(ready) return;
   chat = await window.mlc.ai.createMLCEngine({
-    model: modelName,
-    progressCallback: (p)=>{ $('#qaOut').textContent = `Loading local AI… ${Math.round((p?.progress||0)*100)}%`; }
+    model:modelName,
+    progressCallback:(p)=>{ $('#qaOut').textContent=`Loading local AI… ${Math.round((p?.progress||0)*100)}%`; }
   });
-  modelReady=true;
+  ready=true;
 }
-function buildPrompt(userQ){
-  const lang = detectLangTag(userQ);
-  const intent = detectIntent(userQ);
-
-  const facts = {
-    price : state.ocrMerged.price ? fmtPriceObj(state.ocrMerged.price) : '—',
-    expiry: state.ocrMerged.expiry ? state.ocrMerged.expiry.toISOString().slice(0,10) : '—',
-    mfg   : state.ocrMerged.mfg ? state.ocrMerged.mfg.toISOString().slice(0,10) : '—',
-    allergens: (state.ocrMerged.allergens && state.ocrMerged.allergens.size) ? [...state.ocrMerged.allergens].join(', ') : '—',
-    origin: state.ocrMerged.origin || '—'
+function promptFor(q){
+  const L=detectLang(q), I=intent(q);
+  const facts={
+    price: state.ocrMerged.price?fmtPriceObj(state.ocrMerged.price):'—',
+    expiry: state.ocrMerged.expiry?state.ocrMerged.expiry.toISOString().slice(0,10):'—',
+    mfg: state.ocrMerged.mfg?state.ocrMerged.mfg.toISOString().slice(0,10):'—',
+    allergens:(state.ocrMerged.allergens&&state.ocrMerged.allergens.size)?[...state.ocrMerged.allergens].join(', '):'—',
+    origin: state.ocrMerged.origin||'—'
   };
-  const ocr = (state.ocrMerged.text||'').slice(0,1600);
-
-  const langLine = (lang==='KR')
-    ? 'Respond ONLY in Korean.'
-    : (lang==='FA' ? 'Respond ONLY in Persian (Farsi).'
-                   : 'Respond ONLY in English.');
-
-  const topic = {
-    price:'Only answer with the price if known; otherwise say briefly that price was not detected.',
-    expiry:'Only answer with the expiry date if known; otherwise say briefly it was not detected.',
+  const langLine = (L==='KR')?'Respond ONLY in Korean.':(L==='FA'?'Respond ONLY in Persian (Farsi).':'Respond ONLY in English.');
+  const topic={
+    price:'Only answer with the price if known.',
+    expiry:'Only answer with the expiry date if known.',
     mfg:'Only answer with the manufacturing date if known.',
-    allergens:'Only state allergens if detected; otherwise say none detected.',
-    origin:'Only answer with country of origin if known.',
-    recommend:'Give a brief recommendation (yes/no/caution) based on expiry and allergens only.',
-    general:'Answer briefly using the facts if relevant.'
-  }[intent];
-
+    allergens:'Only list allergens if detected.',
+    origin:'Only answer with the country of origin.',
+    recommend:'Brief yes/no/caution based on expiry (expired→no) and allergens (conflict→no).',
+    general:'Answer briefly using relevant facts.'
+  }[I];
   return {
-    system: `You are a very concise shopping assistant for a demo booth.
-${langLine}
-Do NOT list all facts. ${topic}
-If the user asks for price, do NOT mention expiry, and vice versa.
-Keep the reply to one short sentence.`,
-    user: `FACTS=${JSON.stringify(facts)}\nOCR(first1600)=\n${ocr}\nQUESTION=${userQ}`
+    system:`You are a concise shopping assistant.\n${langLine}\nDo NOT list all facts. ${topic}\nOne short sentence only.`,
+    user:`FACTS=${JSON.stringify(facts)}\nQUESTION=${q}`
   };
 }
 async function askFree(){
+  const q = ($('#q').value||'').trim();
+  if(!q){ $('#qaOut').textContent='اول یک سؤال بنویسید.'; return; } // require a question
   if(!state.ocrMerged.text){ $('#qaOut').textContent='Run OCR (All Views) first.'; return; }
   try{
     await ensureModel();
-    const q = ($('#q').value || '').trim() || 'How much is it?';
-    $('#qaOut').textContent = 'Thinking with local AI…';
-    const {system,user} = buildPrompt(q);
-    const reply = await chat.chat.completions.create({
-      messages: [{role:'system',content:system},{role:'user',content:user}]
-    });
-    const text = reply?.choices?.[0]?.message?.content || '(no reply)';
-    $('#qaOut').textContent = text;
+    $('#qaOut').textContent='Thinking…';
+    const {system,user} = promptFor(q);
+    const r = await chat.chat.completions.create({ messages:[{role:'system',content:system},{role:'user',content:user}] });
+    $('#qaOut').textContent = r?.choices?.[0]?.message?.content || '(no reply)';
   }catch(e){
     console.error(e);
-    // concise fallback in the same language & topic
-    const q = ($('#q').value || '').trim();
-    const intent = detectIntent(q);
-    const lang = detectLangTag(q);
-    const m = state.ocrMerged;
-    const price = m.price ? fmtPriceObj(m.price) : '—';
-    const expiry = m.expiry ? m.expiry.toISOString().slice(0,10) : '—';
-    let out = '';
-    if(intent==='price'){
-      out = (lang==='KR') ? `가격 ${price}.` : (lang==='FA') ? `قیمت ${price}.` : `Price ${price}.`;
-    }else if(intent==='expiry'){
-      out = (lang==='KR') ? `유통기한 ${expiry}.` : (lang==='FA') ? `تاریخ انقضا ${expiry}.` : `Expiry ${expiry}.`;
-    }else if(intent==='mfg'){
-      const mfg = m.mfg ? m.mfg.toISOString().slice(0,10) : '—';
-      out = (lang==='KR') ? `제조일 ${mfg}.` : (lang==='FA') ? `تاریخ تولید ${mfg}.` : `Manufactured ${mfg}.`;
-    }else if(intent==='origin'){
-      const org = m.origin || '—';
-      out = (lang==='KR') ? `원산지 ${org}.` : (lang==='FA') ? `مبدأ ${org}.` : `Origin ${org}.`;
-    }else if(intent==='allergens'){
-      const alg = (m.allergens && m.allergens.size) ? [...m.allergens].join(', ') : 'none detected';
-      out = (lang==='KR') ? `알레르겐 ${alg}.` : (lang==='FA') ? `آلرژن‌ها ${alg}.` : `Allergens ${alg}.`;
-    }else if(intent==='recommend'){
-      let msg='Looks okay.'; if(!m.expiry) msg='Expiry unknown.'; else if((m.expiry-new Date())/86400000<0) msg='Expired.'; 
-      out = (lang==='KR') ? msg : (lang==='FA') ? (msg==='Expired.'?'منقضی شده است.':msg==='Expiry unknown.'?'تاریخ انقضا نامشخص است.':'به‌نظر مناسب است.') : msg;
-    }else{
-      out = (lang==='KR') ? `가격 ${price}.` : (lang==='FA') ? `قیمت ${price}.` : `Price ${price}.`;
-    }
-    $('#qaOut').textContent = out;
+    $('#qaOut').textContent='(Local AI not ready.)';
   }
 }
 $('#askFree').addEventListener('click', askFree);
 
-/* ========= init ========= */
+/* ===== init ===== */
 (async function init(){ if(navigator.mediaDevices?.getUserMedia){ await listCameras(); } updateFacts(); })();
 </script>
 </body>
