@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LLM Shopping Assistant • Multi-View (Free, EN/KR/FA)</title>
+  <title>LLM Shopping Assistant • Multi-View (SIIF 2025)</title>
 
   <!-- OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
@@ -113,9 +113,8 @@
 
         <h2>3) Ask anything</h2>
         <div class="row">
-          <input id="q" type="text" placeholder="Ask about this product… (e.g., How much? Any allergens? Should I buy?)" />
+          <input id="q" type="text" placeholder="Ask about this product… (e.g., قیمت؟, 얼마예요?, How much?)" />
           <button id="askFree">Ask with AI</button>
-          <button id="askRule" class="secondary">Local (offline)</button>
         </div>
         <div id="qaOut" class="out">Assistant will respond here…</div>
       </section>
@@ -194,7 +193,7 @@ $('#cameraSelect').addEventListener('change',e=>{ state.deviceId=e.target.value;
 $('#startCam').addEventListener('click', startCamera);
 $('#stopCam').addEventListener('click', stopCamera);
 
-/* ========= capture (color preview; grayscale only for OCR) ========= */
+/* ========= capture ========= */
 function addImageFromSource(src){
   const c=document.createElement('canvas');
   const w=src.videoWidth||src.naturalWidth, h=src.videoHeight||src.naturalHeight;
@@ -258,30 +257,51 @@ function classifyDates(t){
   return { expiry, mfg };
 }
 
-/* multi-currency price parser */
+/* ---- multi-currency price parser (with filters; prevents 3₩) ---- */
 function parseCurrencyAmount(rawText){
   if(!rawText) return null;
-  const t = rawText.replace(/\s+/g,'');
-  const patterns = [
-    /([₩$€£¥﷼]|KRW|USD|EUR|GBP|JPY|IRR|RIAL)(\d{1,3}(?:,\d{3})*|\d+(?:\.\d+)?)/i,
-    /(\d{1,3}(?:,\d{3})*|\d+(?:\.\d+)?)([₩$€£¥﷼]|KRW|USD|EUR|GBP|JPY|IRR|RIAL|원|W)/i
+  const t = rawText.replace(/\s+/g, '');
+
+  const rxs = [
+    /([₩$€£¥﷼])\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)/g,
+    /(KRW|USD|EUR|GBP|JPY|IRR|RIAL)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)/gi,
+    /([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)\s*(₩|원|W|USD|EUR|GBP|JPY|IRR|RIAL)/gi
   ];
-  let m, currency, amt;
-  for(const rx of patterns){
-    m = t.match(rx);
-    if(m){
-      const a=m[1], b=m[2];
-      if(/[₩$€£¥﷼]|KRW|USD|EUR|GBP|JPY|IRR|RIAL|원|W/i.test(a)){ currency=a; amt=b; }
-      else { currency=b; amt=a; }
-      break;
+
+  const curMap = {
+    '₩':'KRW','원':'KRW','W':'KRW','$':'USD','USD':'USD','€':'EUR','EUR':'EUR',
+    '£':'GBP','GBP':'GBP','¥':'JPY','JPY':'JPY','﷼':'IRR','IRR':'IRR','RIAL':'IRR'
+  };
+
+  const found = [];
+
+  for(const rx of rxs){
+    let m; rx.lastIndex = 0;
+    while((m = rx.exec(t))){
+      let sym = m[1], amt = m[2];
+      if(/[0-9]/.test(m[1])) { sym = m[2]; amt = m[1]; }
+      const currency = (curMap[(sym||'').toUpperCase()] || sym || '').toUpperCase();
+      const amount = parseFloat(String(amt).replace(/,/g,''));
+      if(!isFinite(amount)) continue;
+
+      // filter too-small KRW values like 3₩
+      if(currency === 'KRW' && amount < 100) continue;
+      // reasonable upper cap
+      if(amount > 2e7) continue;
+
+      found.push({
+        amount, currency,
+        hasSymbol: /[₩$€£¥﷼]|원|W/.test(sym||'')
+      });
     }
   }
-  if(!m) return null;
-  const curMap = { '₩':'KRW','원':'KRW','W':'KRW', '$':'USD','USD':'USD','€':'EUR','EUR':'EUR','£':'GBP','GBP':'GBP','¥':'JPY','JPY':'JPY','﷼':'IRR','IRR':'IRR','RIAL':'IRR' };
-  const cur = curMap[(currency||'').toUpperCase()] || currency.toUpperCase();
-  const amount = parseFloat(String(amt).replace(/,/g,''));
-  if(!isFinite(amount)) return null;
-  return { amount, currency: cur };
+  if(!found.length) return null;
+
+  found.sort((a,b)=>{
+    if(a.hasSymbol!==b.hasSymbol) return a.hasSymbol? -1 : 1;
+    return b.amount - a.amount;
+  });
+  return found[0];
 }
 
 /* allergens & origin */
@@ -314,13 +334,12 @@ async function runOCRAll(){
 
   for(const img of state.images){
     idx++;
-    // build a canvas from dataURL
     const base=document.createElement('canvas');
     const ctx=base.getContext('2d',{ willReadFrequently:true });
     await new Promise(res=>{
       const im=new Image();
       im.onload=()=>{ base.width=im.naturalWidth; base.height=im.naturalHeight;
-        ctx.filter='grayscale(1) contrast(1.9) brightness(1.25)';  // stronger for digits
+        ctx.filter='grayscale(1) contrast(1.95) brightness(1.28)';
         ctx.drawImage(im,0,0,base.width,base.height); res();
       };
       im.src=img.data;
@@ -332,20 +351,20 @@ async function runOCRAll(){
     });
     let text = (pass1.data.text||'').trim();
 
-    // Pass 2: top ROI (dates often printed on top lip)
+    // Pass 2: top ROI (dates)
     const roi=document.createElement('canvas');
     roi.width=base.width; roi.height=Math.floor(base.height*0.5);
     const rctx=roi.getContext('2d',{ willReadFrequently:true });
-    rctx.filter='grayscale(1) contrast(1.95) brightness(1.28)';
+    rctx.filter='grayscale(1) contrast(2.0) brightness(1.30)';
     rctx.drawImage(base,0,0,base.width,roi.height,0,0,roi.width,roi.height);
     const pass2 = await Tesseract.recognize(roi,'eng',{ tessedit_char_whitelist:'0123456789.-/ 원W' });
     text += '\n' + (pass2.data.text||'');
 
-    // Pass 3: center ROI for price/currency
+    // Pass 3: center ROI (price/currency)
     const roi2=document.createElement('canvas');
     roi2.width=Math.floor(base.width*0.7); roi2.height=Math.floor(base.height*0.7);
     const r2=roi2.getContext('2d',{ willReadFrequently:true });
-    r2.filter='grayscale(1) contrast(2) brightness(1.35)';
+    r2.filter='grayscale(1) contrast(2.1) brightness(1.35)';
     r2.drawImage(base, base.width*0.15, base.height*0.15, base.width*0.7, base.height*0.7, 0,0,roi2.width,roi2.height);
     const pass3 = await Tesseract.recognize(roi2,'eng+kor',{
       tessedit_char_whitelist:'0123456789,.- ₩$€£¥원WUSDKRWEURGBPJPYIRR﷼RIAL'
@@ -405,21 +424,22 @@ function verdict(){
 }
 $$('.allergen').forEach(cb=>cb.addEventListener('change', verdict));
 
-/* ========= local Q&A (fallback, tri-lingual) ========= */
-function triReplyFromFacts(){
-  const m=state.ocrMerged||{};
-  const p=m.price?fmtPriceObj(m.price):'—';
-  const ex=m.expiry?m.expiry.toISOString().slice(0,10):'—';
-  return (
-    `EN: Price ${p}. Expiry ${ex}.\n`+
-    `KR: 가격 ${p}. 유통기한 ${ex}.\n`+
-    `FA: قیمت ${p}. تاریخ انقضا ${ex}.`
-  );
+/* ========= language & intent detection ========= */
+function detectLangTag(q){
+  if(/[آ-یۀٔ‌]/.test(q)) return 'FA';
+  if(/[\u3131-\uD79D]/.test(q)) return 'KR';
+  return 'EN';
 }
-$('#askRule').addEventListener('click', ()=>{
-  if(!state.ocrMerged.text){ $('#qaOut').textContent='Run OCR (All Views) first.'; return; }
-  $('#qaOut').textContent = triReplyFromFacts();
-});
+function detectIntent(q){
+  const s = (q||'').toLowerCase();
+  if(/price|how much|얼마|가격|قیمت/.test(s)) return 'price';
+  if(/expiry|expiration|유통기한|소비기한|انقضا/.test(s)) return 'expiry';
+  if(/manufactured|mfg|제조|생산|تولید/.test(s)) return 'mfg';
+  if(/allergen|알레르기|حساسیت|gluten|milk|soy|peanut/.test(s)) return 'allergens';
+  if(/origin|원산지|مبدا|کشور/.test(s)) return 'origin';
+  if(/buy|recommend|사도|괜찮|بخرم/.test(s)) return 'recommend';
+  return 'general';
+}
 
 /* ========= Free AI (WebLLM – Phi-3 mini) ========= */
 let chat=null, modelReady=false, modelName='Phi-3-mini-4k-instruct-q4f16_1-MLC';
@@ -432,29 +452,49 @@ async function ensureModel(){
   modelReady=true;
 }
 function buildPrompt(userQ){
+  const lang = detectLangTag(userQ);
+  const intent = detectIntent(userQ);
+
   const facts = {
-    price: state.ocrMerged.price ? fmtPriceObj(state.ocrMerged.price) : '—',
-    expiry: $('#fExpiry').textContent,
-    mfg:    $('#fMfg').textContent,
-    allergens: $('#fAllergen').textContent,
-    origin: $('#fOrigin').textContent
+    price : state.ocrMerged.price ? fmtPriceObj(state.ocrMerged.price) : '—',
+    expiry: state.ocrMerged.expiry ? state.ocrMerged.expiry.toISOString().slice(0,10) : '—',
+    mfg   : state.ocrMerged.mfg ? state.ocrMerged.mfg.toISOString().slice(0,10) : '—',
+    allergens: (state.ocrMerged.allergens && state.ocrMerged.allergens.size) ? [...state.ocrMerged.allergens].join(', ') : '—',
+    origin: state.ocrMerged.origin || '—'
   };
-  const ocr = (state.ocrMerged.text||'').slice(0,1800);
+  const ocr = (state.ocrMerged.text||'').slice(0,1600);
+
+  const langLine = (lang==='KR')
+    ? 'Respond ONLY in Korean.'
+    : (lang==='FA' ? 'Respond ONLY in Persian (Farsi).'
+                   : 'Respond ONLY in English.');
+
+  const topic = {
+    price:'Only answer with the price if known; otherwise say briefly that price was not detected.',
+    expiry:'Only answer with the expiry date if known; otherwise say briefly it was not detected.',
+    mfg:'Only answer with the manufacturing date if known.',
+    allergens:'Only state allergens if detected; otherwise say none detected.',
+    origin:'Only answer with country of origin if known.',
+    recommend:'Give a brief recommendation (yes/no/caution) based on expiry and allergens only.',
+    general:'Answer briefly using the facts if relevant.'
+  }[intent];
+
   return {
-    system: `You are a concise shopping assistant for a demo booth.
-Answer ONLY the user's question using the FACTS when relevant.
-Do NOT list all facts unless the user explicitly asks for a summary.
-Output EXACTLY three short sections labeled EN:, KR:, FA: (one sentence each).`,
-    user: `FACTS=${JSON.stringify(facts)}\nOCR(first1800)=\n${ocr}\nQUESTION=${userQ}`
+    system: `You are a very concise shopping assistant for a demo booth.
+${langLine}
+Do NOT list all facts. ${topic}
+If the user asks for price, do NOT mention expiry, and vice versa.
+Keep the reply to one short sentence.`,
+    user: `FACTS=${JSON.stringify(facts)}\nOCR(first1600)=\n${ocr}\nQUESTION=${userQ}`
   };
 }
 async function askFree(){
   if(!state.ocrMerged.text){ $('#qaOut').textContent='Run OCR (All Views) first.'; return; }
   try{
     await ensureModel();
-    const q = $('#q').value || 'Is it safe and worth buying?';
-    const {system,user} = buildPrompt(q);
+    const q = ($('#q').value || '').trim() || 'How much is it?';
     $('#qaOut').textContent = 'Thinking with local AI…';
+    const {system,user} = buildPrompt(q);
     const reply = await chat.chat.completions.create({
       messages: [{role:'system',content:system},{role:'user',content:user}]
     });
@@ -462,7 +502,34 @@ async function askFree(){
     $('#qaOut').textContent = text;
   }catch(e){
     console.error(e);
-    $('#qaOut').textContent = triReplyFromFacts();
+    // concise fallback in the same language & topic
+    const q = ($('#q').value || '').trim();
+    const intent = detectIntent(q);
+    const lang = detectLangTag(q);
+    const m = state.ocrMerged;
+    const price = m.price ? fmtPriceObj(m.price) : '—';
+    const expiry = m.expiry ? m.expiry.toISOString().slice(0,10) : '—';
+    let out = '';
+    if(intent==='price'){
+      out = (lang==='KR') ? `가격 ${price}.` : (lang==='FA') ? `قیمت ${price}.` : `Price ${price}.`;
+    }else if(intent==='expiry'){
+      out = (lang==='KR') ? `유통기한 ${expiry}.` : (lang==='FA') ? `تاریخ انقضا ${expiry}.` : `Expiry ${expiry}.`;
+    }else if(intent==='mfg'){
+      const mfg = m.mfg ? m.mfg.toISOString().slice(0,10) : '—';
+      out = (lang==='KR') ? `제조일 ${mfg}.` : (lang==='FA') ? `تاریخ تولید ${mfg}.` : `Manufactured ${mfg}.`;
+    }else if(intent==='origin'){
+      const org = m.origin || '—';
+      out = (lang==='KR') ? `원산지 ${org}.` : (lang==='FA') ? `مبدأ ${org}.` : `Origin ${org}.`;
+    }else if(intent==='allergens'){
+      const alg = (m.allergens && m.allergens.size) ? [...m.allergens].join(', ') : 'none detected';
+      out = (lang==='KR') ? `알레르겐 ${alg}.` : (lang==='FA') ? `آلرژن‌ها ${alg}.` : `Allergens ${alg}.`;
+    }else if(intent==='recommend'){
+      let msg='Looks okay.'; if(!m.expiry) msg='Expiry unknown.'; else if((m.expiry-new Date())/86400000<0) msg='Expired.'; 
+      out = (lang==='KR') ? msg : (lang==='FA') ? (msg==='Expired.'?'منقضی شده است.':msg==='Expiry unknown.'?'تاریخ انقضا نامشخص است.':'به‌نظر مناسب است.') : msg;
+    }else{
+      out = (lang==='KR') ? `가격 ${price}.` : (lang==='FA') ? `قیمت ${price}.` : `Price ${price}.`;
+    }
+    $('#qaOut').textContent = out;
   }
 }
 $('#askFree').addEventListener('click', askFree);
