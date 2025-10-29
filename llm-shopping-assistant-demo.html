@@ -1,54 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>LLM Shopping Assistant — Multi-View (SIIF 2025)</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LLM Shopping Assistant — SIIF 2025 (Multi-View • Free Beta)</title>
 
-<!-- OCR -->
+<!-- Tesseract.js (OCR) -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
-<!-- Free local LLM (beta) -->
+
+<!-- WebLLM (local, free, on-device). Will fallback if unavailable -->
 <script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.48/dist/web-llm.min.js"></script>
 
 <style>
-  :root{--bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;--accent:#6ee7b7;--accent2:#a78bfa}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans",Arial;background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);color:var(--ink)}
-  .wrap{max-width:1200px;margin:0 auto;padding:24px}
-  header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
-  .brand{display:flex;gap:10px;align-items:center}
-  .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
-  h1{margin:0;font-size:clamp(18px,2.6vw,28px);font-weight:800}
-  .sub{color:var(--muted);font-size:12px}
-  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
-  @media(max-width:980px){.grid{grid-template-columns:1fr}.sticky{position:relative;top:auto}}
-  .card{background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px}
-  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .row>*{flex:1}
-  select,input[type="text"]{width:100%;background:#0b1430;color:var(--ink);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}
-  button{border:0;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);color:#071021;font-weight:700;cursor:pointer;box-shadow:0 10px 28px rgba(100,214,255,.25)}
-  button.secondary{background:#121a36;color:var(--ink);border:1px solid rgba(255,255,255,.12);box-shadow:none}
-  .progress{height:10px;background:#0b1430;border:1px solid rgba(255,255,255,.1);border-radius:999px;overflow:hidden}
-  .bar{height:100%;width:0;background:linear-gradient(90deg,#6ee7b7,#a78bfa)}
-  /* video container to show zoomed view on mobile */
-  .vwrap{position:relative;width:100%;height:360px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0b1430}
-  video{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%); /* scaled via JS on mobile */}
-  canvas,img{width:100%;max-height:360px;border-radius:14px;background:#0b1430;border:1px solid rgba(255,255,255,.08);object-fit:contain}
-  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:10px}
-  .thumb{position:relative;border:1px solid rgba(255,255,255,.12);border-radius:12px;overflow:hidden;background:#0b1430}
-  .thumb img{width:100%;height:88px;object-fit:cover}
-  .thumb .meta{font-size:11px;color:#9fb3ff;padding:6px}
-  .thumb .actions{position:absolute;top:4px;right:4px}
-  .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 10px;font-size:12px}
-  .out{white-space:pre-wrap;background:#0b1430;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;min-height:54px}
-  .kv{display:grid;grid-template-columns:150px 1fr;gap:6px;font-size:13px}
-  .kv div:nth-child(odd){color:#9fb3ff}
-  .sticky{position:sticky;top:16px}
-  .ok{color:#052;background:rgba(110,231,183,.14);border-color:rgba(110,231,183,.35)}
-  .warn{color:#502;background:rgba(255,209,102,.14);border-color:rgba(255,209,102,.38)}
-  .no{color:#520;background:rgba(255,107,107,.14);border-color:rgba(255,107,107,.38)}
-  .footer{margin-top:18px;color:#9fb3ff;font-size:12px;text-align:center}
-  .tip{font-size:12px;color:#9fb3ff}
+:root{
+  --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;--accent:#6ee7b7;--accent2:#a78bfa;--line:rgba(255,255,255,.08);
+  --danger:#ff6b6b;--warn:#ffd166;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans","Helvetica Neue",Arial}
+.wrap{max-width:1160px;margin:0 auto;padding:18px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 32px rgba(167,139,250,.35)}
+h1{margin:0;font-size:clamp(18px,2.5vw,28px)}
+.sub{color:var(--muted);font-size:12px}
+.badge{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);background:#0f1838;border-radius:999px;padding:6px 10px;color:var(--muted);font-size:12px}
+
+.grid{display:grid;grid-template-columns:1.08fr .92fr;gap:14px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.card h2{margin:.2rem 0 8px;font-size:16px}
+.hr{border:0;border-top:1px solid var(--line);margin:12px 0}
+
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{border:0;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);color:#071021;font-weight:700;cursor:pointer;box-shadow:0 10px 28px rgba(100,214,255,.25)}
+button.secondary{background:#121a36;color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+button:active{transform:translateY(1px)}
+select,input,textarea{background:#0b1430;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+textarea{width:100%;min-height:110px;white-space:pre-wrap}
+
+video,canvas,img{width:100%;max-height:360px;border-radius:14px;background:#0b1430;border:1px solid var(--line);object-fit:contain}
+.thumbs{display:flex;gap:10px;overflow:auto;padding:2px}
+.thumb{position:relative;flex:0 0 108px}
+.thumb img{width:108px;height:86px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#0b1430}
+.thumb button{position:absolute;top:6px;right:6px;border-radius:50%;padding:4px 7px;background:#192148;color:#fff;border:1px solid var(--line)}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px;font-size:13px}
+.kv div:nth-child(odd){color:var(--muted)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+.out{white-space:pre-wrap;background:#0b1430;border:1px solid var(--line);border-radius:12px;padding:12px;min-height:54px}
+.pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px}
+.ok{background:rgba(110,231,183,.14);border-color:rgba(110,231,183,.35)}
+.no{background:rgba(255,107,107,.14);border-color:rgba(255,107,107,.38)}
+.warn{background:rgba(255,209,102,.14);border-color:rgba(255,209,102,.38)}
+.note{font-size:12px;color:var(--muted)}
+.footer{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
@@ -57,57 +64,62 @@
     <div class="brand">
       <div class="logo" aria-hidden="true"></div>
       <div>
-        <h1>LLM Shopping Assistant — Multi-View (SIIF 2025)</h1>
-        <div class="sub">Inventor: <strong>Faranaksadat Solat</strong> • Patent No. 10-2865941 • Category N</div>
+        <h1>LLM Shopping Assistant — SIIF 2025 Demo</h1>
+        <div class="sub">Inventor: <b>Faranaksadat Solat</b> • Patent No. <span class="mono">10-2865941</span> • Category N — Information Technology</div>
       </div>
     </div>
-    <div class="pill">🔒 On-device OCR • 🧠 Local AI (beta)</div>
+    <div class="badge">🔒 On-device OCR & Free Local AI (beta)</div>
   </header>
 
   <div class="grid">
-    <!-- LEFT -->
+    <!-- LEFT: capture + OCR -->
     <section class="card">
       <h2>1) Capture label (multi-view)</h2>
       <div class="row">
-        <select id="cameraSelect"></select>
+        <select id="cameraSelect" title="Choose camera"></select>
         <button id="startCam">Start Camera</button>
         <button id="stopCam" class="secondary">Stop</button>
-        <label class="pill" for="fileInput">Upload Image <input id="fileInput" type="file" accept="image/*" style="display:none"></label>
+        <label class="pill" for="fileInput">Upload Image <input id="fileInput" type="file" accept="image/*" multiple class="hidden"></label>
       </div>
-      <div class="vwrap"><video id="video" autoplay playsinline muted></video></div>
+      <video id="video" autoplay playsinline muted></video>
       <canvas id="canvas" hidden></canvas>
-      <div class="row">
+
+      <div class="row" style="margin-top:8px">
         <button id="addView">📸 Add View</button>
         <button id="clearAll" class="secondary">Clear All</button>
+        <span class="note">Add 2–5 sides of the package, then run OCR.</span>
       </div>
-      <div id="gallery" class="thumbs"></div>
-      <div class="tip" style="margin-top:8px">Add 2–5 sides of the package, then run OCR.</div>
 
-      <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:14px 0"/>
+      <div id="thumbs" class="thumbs"></div>
+
+      <div class="hr"></div>
 
       <h2>2) OCR all views & smart merge</h2>
-      <!-- Only beta 3-language mode kept -->
-      <select id="lang" style="display:none"><option value="eng+kor+fas" selected>eng+kor+fas</option></select>
-      <div class="row"><button id="runOCR">Run OCR (All Views)</button></div>
-      <div class="progress"><div id="pbar" class="bar"></div></div>
-      <div id="ocrOut" class="out">OCR output log…</div>
+      <div class="row">
+        <select id="lang">
+          <option value="eng+kor">English + Korean</option>
+          <option value="eng+kor+fas">English + Korean + Persian</option>
+        </select>
+        <button id="runAll">Run OCR (All Views)</button>
+      </div>
+      <div id="ocrLog" class="out">—</div>
       <div class="row" style="margin-top:8px">
-        <button id="copyOCR" class="secondary">Copy All Text</button>
-        <button id="downloadTxt" class="secondary">Download .txt</button>
+        <button id="copyAll" class="secondary">Copy All Text</button>
+        <button id="dlTxt" class="secondary">Download .txt</button>
       </div>
 
-      <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:14px 0"/>
+      <div class="hr"></div>
 
       <h2>3) Ask anything</h2>
       <div class="row">
-        <input id="q" type="text" placeholder="Ask about this product… (e.g., قیمت؟ / 얼마예요? / How much?)"/>
-        <button id="askFree">Ask with AI</button>
+        <input id="q" type="text" placeholder="e.g., How much is it?  قیمتش چنده؟   얼마예요?" />
+        <button id="ask">Ask with AI (Free β)</button>
       </div>
-      <div id="qaOut" class="out">Type a question above first.</div>
+      <div id="qaOut" class="out">Type a question above.</div>
     </section>
 
-    <!-- RIGHT -->
-    <aside class="card sticky">
+    <!-- RIGHT: Profile + Verdict + Facts -->
+    <aside class="card">
       <h2>Buyer profile</h2>
       <div class="row">
         <label class="pill"><input type="checkbox" class="allergen" value="milk"> Milk / 우유</label>
@@ -119,11 +131,11 @@
         <label class="pill"><input type="checkbox" class="allergen" value="shellfish"> Shellfish</label>
       </div>
 
-      <h2 style="margin-top:12px">Auto-verdict</h2>
-      <div id="verdict" class="out">Add views and run OCR to see the verdict.</div>
+      <h2 style="margin-top:10px">Auto-verdict</h2>
+      <div id="verdict" class="out">Run OCR to see the live verdict.</div>
 
-      <h2 style="margin-top:12px">Quick facts (merged)</h2>
-      <div class="kv" id="facts">
+      <h2 style="margin-top:10px">Quick facts (merged)</h2>
+      <div class="kv mono" id="facts">
         <div>Detected Price</div><div id="fPrice">—</div>
         <div>Expiry</div><div id="fExpiry">—</div>
         <div>Manufactured</div><div id="fMfg">—</div>
@@ -132,274 +144,347 @@
         <div>Views</div><div id="fViews">0</div>
       </div>
 
-      <div class="footer">© 2025 Faranaksadat Solat • Patent 10-2865941 • SIIF 2025 Demo</div>
+      <div class="footer">© 2025 Faranaksadat Solat • Patent 10-2865941 • SIIF 2025</div>
     </aside>
   </div>
 </div>
 
 <script>
-/* ===== helpers & state ===== */
-const $ = s => document.querySelector(s);
-const $$ = s => Array.from(document.querySelectorAll(s));
-const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-const MOBILE_ZOOM = 1.5; // visual + capture crop
-const state = { stream:null, deviceId:null, images:[], ocrMerged:{ text:'', price:null, expiry:null, mfg:null, allergens:new Set(), origin:null }, ocrLogs:[] };
-function fmtKRW(n){ if(n==null) return '—'; return new Intl.NumberFormat('ko-KR').format(Math.round(n))+'원'; }
-function fmtPriceObj(p){ if(!p) return '—'; const sym={KRW:'₩',USD:'$',EUR:'€',GBP:'£',JPY:'¥',IRR:'﷼'}[p.currency]||p.currency; const n=p.currency==='KRW'?new Intl.NumberFormat('ko-KR').format(Math.round(p.amount)):new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(p.amount); return `${sym}${n} (${p.currency})`; }
+/* ================== ENV/FLAGS ================== */
+const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const hasWebGPU=!!navigator.gpu;
+const MOBILE_PREFERRED_RX={id:/camera2\s*0/i,back:/back|rear/i};
 
-/* ===== camera (mobile: back + zoomed view) ===== */
+/* ====== STATE ====== */
+const $=s=>document.querySelector(s);
+const $$=s=>Array.from(document.querySelectorAll(s));
+const state={
+  stream:null,imageCapture:null,deviceId:null,
+  views:[], // {dataURL, text}
+  merged:{text:'', price:null, priceView:null, expiry:null, mfg:null, allergens:new Set(), origin:null}
+};
+
+/* ====== CAMERA (auto-pick mobile back: camera2 0) ====== */
 async function listCameras(){
-  const dev = await navigator.mediaDevices.enumerateDevices();
-  const vids = dev.filter(d=>d.kind==='videoinput');
-  const sel = $('#cameraSelect'); sel.innerHTML='';
+  const devs=await navigator.mediaDevices.enumerateDevices();
+  const vids=devs.filter(d=>d.kind==='videoinput');
+  const sel=$('#cameraSelect'); sel.innerHTML='';
   vids.forEach((d,i)=>{ const o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||`Camera ${i+1}`; sel.appendChild(o); });
-  if(!state.deviceId && vids[0]) state.deviceId = vids[0].deviceId;
-  sel.value = state.deviceId || '';
+  if(!state.deviceId && vids[0]) state.deviceId=vids[0].deviceId;
+  sel.value=state.deviceId||'';
+  if(isMobile) sel.style.display='none'; // hide selection on mobile
 }
+
+async function pickMobileBackCameraId(){
+  try{
+    const devs=await navigator.mediaDevices.enumerateDevices();
+    const vids=devs.filter(d=>d.kind==='videoinput');
+    let hit=vids.find(d=>MOBILE_PREFERRED_RX.id.test(d.label)&&MOBILE_PREFERRED_RX.back.test(d.label));
+    if(hit) return hit.deviceId;
+    hit=vids.find(d=>MOBILE_PREFERRED_RX.back.test(d.label));
+    if(hit) return hit.deviceId;
+    return null;
+  }catch{return null}
+}
+
 async function startCamera(){
   try{
     if(state.stream) stopCamera();
-    const constraints = { video:{ facingMode:{ ideal:'environment' }, width:{ideal:1920}, height:{ideal:1080} } };
-    if(state.deviceId) constraints.video.deviceId = { exact: state.deviceId };
-    const s = await navigator.mediaDevices.getUserMedia(constraints);
-    state.stream = s;
-    const v = $('#video'); v.srcObject = s;
-    // visual zoom for mobile
+
+    let constraints;
     if(isMobile){
-      v.style.width='calc(100% * '+MOBILE_ZOOM+')';
-      v.style.height='auto';
-    } else {
-      v.style.width='100%'; v.style.height='auto';
+      // warm-up to reveal labels
+      try{ const warm=await navigator.mediaDevices.getUserMedia({video:true}); warm.getTracks().forEach(t=>t.stop()); }catch{}
+      const mobileId=await pickMobileBackCameraId();
+      constraints = mobileId ? { video:{ deviceId:{ exact: mobileId } } } 
+                             : { video:{ facingMode:{ exact:'environment' } } };
+    }else{
+      constraints={ video:{ width:{ideal:1920}, height:{ideal:1080}, facingMode:{ideal:'environment'} } };
+      if(state.deviceId) constraints.video.deviceId={ exact: state.deviceId };
     }
+
+    const stream=await navigator.mediaDevices.getUserMedia(constraints);
+    state.stream=stream; $('#video').srcObject=stream;
+    const track=stream.getVideoTracks()[0];
+    state.imageCapture=('ImageCapture' in window)?new ImageCapture(track):null;
   }catch(e){ alert('Camera error: '+e.message); }
 }
-function stopCamera(){ if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; } $('#video').srcObject=null; }
+function stopCamera(){
+  if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; }
+  state.imageCapture=null; $('#video').srcObject=null;
+}
 $('#cameraSelect').addEventListener('change',e=>{ state.deviceId=e.target.value; startCamera(); });
-$('#startCam').addEventListener('click', startCamera);
-$('#stopCam').addEventListener('click', stopCamera);
+$('#startCam').addEventListener('click',startCamera);
+$('#stopCam').addEventListener('click',stopCamera);
 
-/* ===== capture (apply same mobile zoom as crop) ===== */
-function captureFrom(src){
-  const fullW = src.videoWidth||src.naturalWidth, fullH = src.videoHeight||src.naturalHeight;
-  let sx=0, sy=0, sw=fullW, sh=fullH;
-  if(isMobile){ // crop center
-    const factor = MOBILE_ZOOM;
-    const cw = Math.floor(fullW / factor), ch = Math.floor(fullH / factor);
-    sx = Math.floor((fullW - cw)/2); sy = Math.floor((fullH - ch)/2);
-    sw = cw; sh = ch;
+/* ====== CAPTURE / UPLOAD (keep color preview; preprocess only for OCR) ====== */
+async function takeFrameAsDataURL(){
+  const canvas=$('#canvas'); const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(state.imageCapture){
+    const blob=await state.imageCapture.takePhoto().catch(()=>null);
+    if(blob){ const bmp=await createImageBitmap(blob); canvas.width=bmp.width; canvas.height=bmp.height; ctx.drawImage(bmp,0,0); }
+  }else{
+    const v=$('#video'); if(!v.videoWidth) return null;
+    canvas.width=v.videoWidth; canvas.height=v.videoHeight; ctx.drawImage(v,0,0);
   }
-  const c=document.createElement('canvas'); c.width=sw; c.height=sh;
-  const ctx=c.getContext('2d'); ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
-  return c.toDataURL('image/png');
+  return canvas.toDataURL('image/png');
 }
-function addImageFromSource(src){
-  const data = captureFrom(src);
-  state.images.push({ data });
-  renderGallery(); updateFacts();
+function addThumb(dataURL){
+  state.views.push({dataURL, text:''});
+  renderThumbs();
+  $('#fViews').textContent = state.views.length.toString();
 }
-function renderGallery(){
-  const g=$('#gallery'); g.innerHTML='';
-  state.images.forEach((img,i)=>{
-    const el=document.createElement('div'); el.className='thumb';
-    el.innerHTML=`<div class="actions"><button class="secondary" data-i="${i}" data-act="del">✕</button></div>
-                  <img src="${img.data}" alt="view ${i+1}"><div class="meta">View ${i+1}</div>`;
-    g.appendChild(el);
-  });
-  g.querySelectorAll('button[data-act="del"]').forEach(b=>{
-    b.onclick = e=>{ const idx=+e.target.dataset.i; state.images.splice(idx,1); renderGallery(); updateFacts(); };
+function renderThumbs(){
+  const box=$('#thumbs'); box.innerHTML='';
+  state.views.forEach((v,i)=>{
+    const t=document.createElement('div'); t.className='thumb';
+    t.innerHTML=`<img src="${v.dataURL}" alt="View ${i+1}"><button data-i="${i}">×</button><div class="note">View ${i+1}</div>`;
+    t.querySelector('button').onclick=()=>{ state.views.splice(i,1); renderThumbs(); mergeFacts(); $('#fViews').textContent=state.views.length; };
+    box.appendChild(t);
   });
 }
-$('#addView').addEventListener('click', ()=>{
-  const v=$('#video');
-  if(!state.stream && !v.srcObject){ alert('Start the camera or upload an image.'); return; }
-  if(state.images.length>=5){ alert('Up to 5 views supported.'); return; }
-  addImageFromSource(v);
+$('#addView').addEventListener('click',async ()=>{
+  if(!state.stream && !$('#video').srcObject){ await startCamera(); }
+  const url=await takeFrameAsDataURL(); if(url) addThumb(url);
 });
-$('#clearAll').addEventListener('click', ()=>{
-  state.images=[]; state.ocrLogs=[]; state.ocrMerged={ text:'', price:null, expiry:null, mfg:null, allergens:new Set(), origin:null };
-  renderGallery(); $('#ocrOut').textContent=''; updateFacts();
-  $('#verdict').textContent='Add views and run OCR to see the verdict.';
-});
+$('#clearAll').addEventListener('click',()=>{ state.views.length=0; renderThumbs(); mergeFacts(); $('#ocrLog').textContent='—'; $('#qaOut').textContent='Type a question above.'; $('#fViews').textContent='0'; });
+
 $('#fileInput').addEventListener('change',ev=>{
-  const f=ev.target.files?.[0]; if(!f) return;
-  const url=URL.createObjectURL(f); const img=new Image();
-  img.onload=()=>{ addImageFromSource(img); URL.revokeObjectURL(url); };
-  img.src=url;
+  const files=[...(ev.target.files||[])];
+  files.slice(0,8).forEach(f=>{
+    const url=URL.createObjectURL(f);
+    const img=new Image(); img.onload=()=>{ URL.revokeObjectURL(url); const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext('2d').drawImage(img,0,0); addThumb(c.toDataURL('image/png')); };
+    img.src=url;
+  });
 });
 
-/* ===== text utils / parsers ===== */
-function normalizeForDates(s){ return (s||'').replace(/[O○]/g,'0').replace(/[lI|]/g,'1').replace(/S/g,'5').replace(/B/g,'8'); }
-function findAllDates(raw){ const t=normalizeForDates(raw); const out=[]; const rx=/(\b20\d{2})[.\/\- ]?([01]?\d)[.\/\- ]?([0-3]?\d)\b/g; let m; while((m=rx.exec(t))){ const y=+m[1],mo=(+m[2])-1,d=+m[3]; const dt=new Date(y,mo,d); if(!isNaN(dt)) out.push({dt,idx:m.index}); } return out; }
-function classifyDates(t){
-  const dates=findAllDates(t); let expiry=null,mfg=null;
-  const lower=normalizeForDates(t).toLowerCase();
-  const expKeys=[/유통기한|소비기한|expiry|exp\b|best\s*before/i];
-  const mfgKeys=[/제조일|제조|생산일|생산|mfg\b|manufactured|made\s*on/i];
-  for(const d of dates){
-    const w=lower.slice(Math.max(0,d.idx-24), d.idx+24);
-    if(expKeys.some(r=>r.test(w))) expiry=d.dt;
-    if(mfgKeys.some(r=>r.test(w))) mfg=d.dt;
-  }
-  if(!expiry){ expiry = dates.map(x=>x.dt).sort((a,b)=>a-b).slice(-1)[0]; }
-  if(!mfg && dates.length>1){ mfg = dates.map(x=>x.dt).sort((a,b)=>a-b)[0]; }
-  return { expiry, mfg };
+/* ====== OCR HELPERS (preprocess & parsers) ====== */
+function preprocessCanvasFromDataURL(url){
+  return new Promise(res=>{
+    const img=new Image(); img.onload=()=>{
+      const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+      const ctx=c.getContext('2d',{willReadFrequently:true});
+      // keep preview color; preprocessing only for OCR:
+      ctx.filter='grayscale(1) contrast(1.75) brightness(1.15)';
+      ctx.drawImage(img,0,0);
+      res(c);
+    };
+    img.src=url;
+  });
 }
-/* price (multi-currency) with KRW small-value filter */
-function parseCurrencyAmount(rawText){
-  if(!rawText) return null; const t=rawText.replace(/\s+/g,'');
-  const rxs=[
-    /([₩$€£¥﷼])\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)/g,
-    /(KRW|USD|EUR|GBP|JPY|IRR|RIAL)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)/gi,
-    /([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+(?:\.[0-9]+)?)\s*(₩|원|W|USD|EUR|GBP|JPY|IRR|RIAL)/gi
+function norm(text){ return (text||'').replace(/\s+/g,' ').trim(); }
+
+/* Price: support ₩, 원, $, USD, €, EUR. Keep biggest sensible number; ignore tiny noise like 3 */
+function parsePricesMulti(text){
+  const t=text.replace(/\s/g,'');
+  const hits=[];
+  const add=(cur,raw,num)=>{ if(!isFinite(num)) return; hits.push({cur,raw,amount:num}); };
+
+  // KRW: ₩12,345  or  12,345원  or W 12345
+  (t.match(/(?:₩|￦|W)?\s?([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})원?/gi)||[]).forEach(m=>{
+    const n=parseInt(m.replace(/[^\d]/g,''),10); add('KRW',m,n);
+  });
+  // USD: $12.34 or USD12.34
+  (t.match(/(?:USD|\$)\s?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/gi)||[]).forEach(m=>{
+    const n=parseFloat(m.replace(/[^0-9.]/g,'')); add('USD',m,n);
+  });
+  // EUR: €12.34 or EUR12.34
+  (t.match(/(?:EUR|€)\s?([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{1,2})?)/gi)||[]).forEach(m=>{
+    const n=parseFloat(m.replace(/[€.]/g,'').replace(',','.')); add('EUR',m,n);
+  });
+
+  // choose best: prefer KRW highest (>=100), else USD/EUR highest
+  const kw=hits.filter(h=>h.cur==='KRW' && h.amount>=100); // avoid ₩3 glitches
+  if(kw.length) return kw.sort((a,b)=>b.amount-a.amount)[0];
+  if(hits.length) return hits.sort((a,b)=>b.amount-a.amount)[0];
+  return null;
+}
+function parseDateLoose(text){
+  const c=text.replace(/\s/g,'');
+  const pats=[
+    /(20\d{2})[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/,
   ];
-  const curMap={'₩':'KRW','원':'KRW','W':'KRW','$':'USD','USD':'USD','€':'EUR','EUR':'EUR','£':'GBP','GBP':'GBP','¥':'JPY','JPY':'JPY','﷼':'IRR','IRR':'IRR','RIAL':'IRR'};
-  const found=[];
-  for(const rx of rxs){ let m; rx.lastIndex=0; while((m=rx.exec(t))){
-    let sym=m[1], amt=m[2]; if(/[0-9]/.test(m[1])){sym=m[2]; amt=m[1];}
-    const currency=(curMap[(sym||'').toUpperCase()]||sym||'').toUpperCase();
-    const amount=parseFloat(String(amt).replace(/,/g,'')); if(!isFinite(amount)) continue;
-    if(currency==='KRW' && amount<100) continue;
-    if(amount>2e7) continue;
-    found.push({amount,currency,hasSymbol:/[₩$€£¥﷼]|원|W/.test(sym||'')});
-  }}
-  if(!found.length) return null;
-  found.sort((a,b)=>{ if(a.hasSymbol!==b.hasSymbol) return a.hasSymbol?-1:1; return b.amount-a.amount; });
-  return found[0];
-}
-/* allergens & origin */
-const ALLERGENS={milk:[/\bmilk\b/i,/우유/,/乳/],soy:[/\bsoy\b/i,/대두/],nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],peanut:[/\bpeanut/i,/땅콩/],gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],egg:[/\begg\b/i,/계란/,/난류/],shellfish:[/shrimp/i,/crab/i,/lobster/i,/shellfish/i,/조개/,/새우/,/게/]};
-function detectAllergens(t){ const s=new Set(); for(const[k,arr] of Object.entries(ALLERGENS)) if(arr.some(rx=>rx.test(t))) s.add(k); return s; }
-const ORIGINS=[{k:/한국|대한민국|국내산|made in korea|korea/i,v:'Korea'},{k:/usa|미국|made in usa/i,v:'USA'},{k:/japan|일본/i,v:'Japan'},{k:/china|중국/i,v:'China'},{k:/iran|이란/i,v:'Iran'}];
-function detectOrigin(t){ for(const o of ORIGINS){ if(o.k.test(t)) return o.v; } return null; }
-
-/* ===== OCR all views ===== */
-async function runOCRAll(){
-  if(state.images.length===0){ alert('Add at least 1 view.'); return; }
-  const lang = 'eng+kor+fas';
-  const pbar = $('#pbar'); state.ocrLogs=[]; let mergedText=''; let mergedPrice=null; let mergedExpiry=null; let mergedMfg=null; let mergedAllergens=new Set(); const originVotes={}; let idx=0;
-
-  for(const img of state.images){
-    idx++; const base=document.createElement('canvas'); const ctx=base.getContext('2d',{willReadFrequently:true});
-    await new Promise(res=>{ const im=new Image(); im.onload=()=>{ base.width=im.naturalWidth; base.height=im.naturalHeight; ctx.filter='grayscale(1) contrast(1.95) brightness(1.28)'; ctx.drawImage(im,0,0,base.width,base.height); res(); }; im.src=img.data; });
-
-    const pass1 = await Tesseract.recognize(base, lang, { logger:m=>{ if(m.status==='recognizing text'){ pbar.style.width=Math.round(((idx-1)+m.progress)/state.images.length*100)+'%'; } } });
-    let text=(pass1.data.text||'').trim();
-
-    const roi=document.createElement('canvas'); roi.width=base.width; roi.height=Math.floor(base.height*0.5);
-    const rctx=roi.getContext('2d',{willReadFrequently:true}); rctx.filter='grayscale(1) contrast(2.0) brightness(1.30)'; rctx.drawImage(base,0,0,base.width,roi.height,0,0,roi.width,roi.height);
-    const pass2=await Tesseract.recognize(roi,'eng',{tessedit_char_whitelist:'0123456789.-/ 원W'}); text+='\n'+(pass2.data.text||'');
-
-    const roi2=document.createElement('canvas'); roi2.width=Math.floor(base.width*0.7); roi2.height=Math.floor(base.height*0.7);
-    const r2=roi2.getContext('2d',{willReadFrequently:true}); r2.filter='grayscale(1) contrast(2.1) brightness(1.35)';
-    r2.drawImage(base,base.width*0.15,base.height*0.15,base.width*0.7,base.height*0.7,0,0,roi2.width,roi2.height);
-    const pass3=await Tesseract.recognize(roi2,'eng+kor',{tessedit_char_whitelist:'0123456789,.- ₩$€£¥원WUSDKRWEURGBPJPYIRR﷼RIAL'}); text+='\n'+(pass3.data.text||'');
-
-    const {expiry,mfg}=classifyDates(text); const priceObj=parseCurrencyAmount(text); const allergens=detectAllergens(text); const origin=detectOrigin(text);
-
-    mergedText += `\n[View ${idx}]\n`+text+"\n";
-    if(priceObj && !mergedPrice) mergedPrice=priceObj;
-    if(expiry) mergedExpiry = (!mergedExpiry||expiry>mergedExpiry)? expiry:mergedExpiry;
-    if(mfg) mergedMfg = (!mergedMfg||mfg<mergedMfg)? mfg:mergedMfg;
-    allergens.forEach(a=>mergedAllergens.add(a)); if(origin){ originVotes[origin]=(originVotes[origin]||0)+1; }
-    state.ocrLogs.push({i:idx,text,price:priceObj,expiry,mfg,allergens:[...allergens],origin});
+  for(const r of pats){
+    const m=c.match(r); if(m){ const d=new Date(parseInt(m[1],10),parseInt(m[2],10)-1,parseInt(m[3],10)); if(!isNaN(d)) return d; }
   }
-  let origin=null,max=0; for(const[k,v] of Object.entries(originVotes)){ if(v>max){max=v; origin=k;} }
-  state.ocrMerged={ text:mergedText, price:mergedPrice, expiry:mergedExpiry, mfg:mergedMfg, allergens:mergedAllergens, origin };
-  $('#ocrOut').textContent = state.ocrLogs.map(v=>`View ${v.i}: price=${v.price?fmtPriceObj(v.price):'—'}, expiry=${v.expiry?v.expiry.toISOString().slice(0,10):'—'}, mfg=${v.mfg?v.mfg.toISOString().slice(0,10):'—'}, origin=${v.origin||'—'}, allergens=${v.allergens.join(', ')||'—'}`).join('\n');
-  updateFacts(); verdict(); pbar.style.width='0%';
+  return null;
 }
-$('#runOCR').addEventListener('click', runOCRAll);
-$('#copyOCR').addEventListener('click', async()=>{ const t=(state.ocrMerged.text||'').trim(); await navigator.clipboard.writeText(t); alert('All OCR text copied.'); });
-$('#downloadTxt').addEventListener('click', ()=>{ const blob=new Blob([state.ocrMerged.text||''],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ocr_all_views.txt'; a.click(); URL.revokeObjectURL(a.href); });
+const ALLERGEN_RX={
+  milk:[/\bmilk\b/i,/우유/,/乳/], soy:[/\bsoy\b/i,/대두/],
+  nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],
+  peanut:[/\bpeanut/i,/땅콩/], gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],
+  egg:[/\begg\b/i,/계란/,/난류/], shellfish:[/shellfish|shrimp|crab|lobster/i,/조개/,/새우/,/게/]
+};
+function detectAllergens(text){ const set=new Set(); for(const[k,arr] of Object.entries(ALLERGEN_RX)){ if(arr.some(rx=>rx.test(text))) set.add(k); } return set; }
+function detectOrigin(text){
+  const arr=[{k:/한국|대한민국|국내산|madeinkorea|korea/i,v:'Korea'},{k:/usa|미국|madeinusa/i,v:'USA'},{k:/japan|일본/i,v:'Japan'},{k:/iran|이란/i,v:'Iran'},{k:/china|중국/i,v:'China'}];
+  for(const o of arr){ if(o.k.test(text)) return o.v; } return null;
+}
+function fmtKRW(n){return new Intl.NumberFormat('ko-KR').format(n)+'원'}
+function fmtPriceObj(p){ if(!p) return '—'; if(p.cur==='KRW') return fmtKRW(p.amount); if(p.cur==='USD') return '$'+p.amount; if(p.cur==='EUR') return '€'+p.amount; return p.amount+' '+p.cur; }
 
-/* ===== facts & verdict ===== */
-function updateFacts(){
-  const m=state.ocrMerged||{};
-  $('#fPrice').textContent=fmtPriceObj(m.price);
-  $('#fExpiry').textContent=m.expiry?m.expiry.toISOString().slice(0,10):'—';
-  $('#fMfg').textContent=m.mfg?m.mfg.toISOString().slice(0,10):'—';
-  $('#fAllergen').textContent=(m.allergens&&m.allergens.size)?[...m.allergens].join(', '):'—';
-  $('#fOrigin').textContent=m.origin||'—';
-  $('#fViews').textContent=state.images.length;
+/* ====== OCR RUN (all views) ====== */
+$('#runAll').addEventListener('click',async ()=>{
+  if(!state.views.length){ alert('Add at least one view first.'); return; }
+  $('#ocrLog').textContent='Running OCR…';
+  const lang=$('#lang').value || 'eng+kor';
+
+  let log=[];
+  for(let i=0;i<state.views.length;i++){
+    const v=state.views[i];
+    const c=await preprocessCanvasFromDataURL(v.dataURL);
+    const pass=await Tesseract.recognize(c,lang);
+    v.text = norm(pass.data.text||'');
+    const price=parsePricesMulti(v.text);
+    const expiry=parseDateLoose(v.text);
+    const mfg=(/제조|생산|mfg|manufactured/i.test(v.text))?parseDateLoose(v.text):null;
+    const allergens=detectAllergens(v.text);
+    const origin=detectOrigin(v.text);
+
+    log.push(`View ${i+1}: price=${price?fmtPriceObj(price):'—'}, expiry=${expiry?expiry.toISOString().slice(0,10):'—'}, mfg=${mfg?mfg.toISOString().slice(0,10):'—'}, origin=${origin||'—'}, allergens=${[...allergens].join(', ')||'—'}`);
+  }
+  $('#ocrLog').textContent=log.join('\n');
+  mergeFacts();
+});
+
+/* ====== MERGE FACTS + VERDICT ====== */
+function mergeFacts(){
+  const merged={text:'', price:null, priceView:null, expiry:null, mfg:null, allergens:new Set(), origin:null};
+  state.views.forEach((v,idx)=>{
+    merged.text += (v.text||'')+'\n';
+    const pr=parsePricesMulti(v.text); if(pr && (!merged.price || (pr.cur==='KRW' && (merged.price.cur!=='KRW' || pr.amount>merged.price.amount)))){ merged.price=pr; merged.priceView=idx+1; }
+    const ex=parseDateLoose(v.text); if(ex && (!merged.expiry || ex>merged.expiry)) merged.expiry=ex;
+    const mf=(/제조|생산|mfg|manufactured/i.test(v.text))?parseDateLoose(v.text):null; if(mf && (!merged.mfg || mf>merged.mfg)) merged.mfg=mf;
+    detectAllergens(v.text).forEach(a=>merged.allergens.add(a));
+    const o=detectOrigin(v.text); if(o && !merged.origin) merged.origin=o;
+  });
+  state.merged=merged;
+  $('#fPrice').textContent = merged.price? `${fmtPriceObj(merged.price)} ${merged.priceView?`(v${merged.priceView})`:''}` : '—';
+  $('#fExpiry').textContent = merged.expiry? merged.expiry.toISOString().slice(0,10) : '—';
+  $('#fMfg').textContent = merged.mfg? merged.mfg.toISOString().slice(0,10) : '—';
+  $('#fAllergen').textContent = merged.allergens.size? [...merged.allergens].join(', ') : '—';
+  $('#fOrigin').textContent = merged.origin || '—';
+  verdict();
 }
+
 function verdict(){
+  const m=state.merged;
+  const issues=[];
   const userAll=$$('.allergen:checked').map(x=>x.value);
-  const m=state.ocrMerged; let issues=[];
-  const conflict=[...(m.allergens||[])].filter(a=>userAll.includes(a)); if(conflict.length) issues.push('Allergen conflict: '+conflict.join(', '));
-  if(m.expiry){ const days=Math.ceil((m.expiry-new Date())/86400000); if(days<0) issues.push('Expired'); } else issues.push('No expiry date found');
+  const conflict=[...m.allergens].some(a=>userAll.includes(a));
+  if(conflict) issues.push('Allergen conflict');
+  if(m.expiry){
+    const days=Math.ceil((m.expiry - new Date())/86400000);
+    if(days<0) issues.push('Expired'); else if(days<=1) issues.push('Expires soon');
+  }else{
+    issues.push('No expiry date found');
+  }
   const box=$('#verdict');
   if(issues.length===0) box.innerHTML=`<span class="pill ok">✅ Recommended</span> Looks good for your profile.`;
   else if(issues.some(s=>/Expired|Allergen/.test(s))) box.innerHTML=`<span class="pill no">⛔ Not Recommended</span>\n- `+issues.join('\n- ');
   else box.innerHTML=`<span class="pill warn">⚠️ Caution</span>\n- `+issues.join('\n- ');
 }
-$$('.allergen').forEach(cb=>cb.addEventListener('change', verdict));
+$$('.allergen').forEach(cb=>cb.addEventListener('change',verdict));
 
-/* ===== language & intent detection ===== */
-function detectLang(q){ if(/[آ-یۀٔ‌]/.test(q)) return 'FA'; if(/[\u3131-\uD79D]/.test(q)) return 'KR'; return 'EN'; }
-function intent(q){
-  const s=(q||'').toLowerCase();
-  if(/price|how much|얼마|가격|قیمت/.test(s)) return 'price';
-  if(/expiry|expiration|유통기한|소비기한|انقضا/.test(s)) return 'expiry';
-  if(/manufactured|mfg|제조|생산|تولید/.test(s)) return 'mfg';
-  if(/allergen|알레르기|حساسیت|gluten|milk|soy|peanut/.test(s)) return 'allergens';
-  if(/origin|원산지|مبدا|کشور/.test(s)) return 'origin';
-  if(/buy|recommend|사도|괜찮|بخرم/.test(s)) return 'recommend';
-  return 'general';
-}
+/* ====== ASK (AI beta with robust fallback) ====== */
+let chat=null, ready=false;
+const modelName='TinyLlama-1.1B-chat-v1.0-q4f16_1-MLC'; // tiny, loads quicker
 
-/* ===== local AI (beta) ===== */
-let chat=null, ready=false, modelName='Phi-3-mini-4k-instruct-q4f16_1-MLC'; // single beta model
 async function ensureModel(){
-  if(ready) return;
+  if(ready || !hasWebGPU) return;
   chat = await window.mlc.ai.createMLCEngine({
     model:modelName,
-    progressCallback:(p)=>{ $('#qaOut').textContent=`Loading local AI… ${Math.round((p?.progress||0)*100)}%`; }
+    progressCallback:(p)=>{
+      const pct=Math.round((p?.progress||0)*100);
+      if(!ready) $('#qaOut').textContent = `Loading local AI… ${pct}%`;
+    }
   });
   ready=true;
 }
-function promptFor(q){
-  const L=detectLang(q), I=intent(q);
-  const facts={
-    price: state.ocrMerged.price?fmtPriceObj(state.ocrMerged.price):'—',
-    expiry: state.ocrMerged.expiry?state.ocrMerged.expiry.toISOString().slice(0,10):'—',
-    mfg: state.ocrMerged.mfg?state.ocrMerged.mfg.toISOString().slice(0,10):'—',
-    allergens:(state.ocrMerged.allergens&&state.ocrMerged.allergens.size)?[...state.ocrMerged.allergens].join(', '):'—',
-    origin: state.ocrMerged.origin||'—'
-  };
-  const langLine = (L==='KR')?'Respond ONLY in Korean.':(L==='FA'?'Respond ONLY in Persian (Farsi).':'Respond ONLY in English.');
-  const topic={
-    price:'Only answer with the price if known.',
-    expiry:'Only answer with the expiry date if known.',
-    mfg:'Only answer with the manufacturing date if known.',
-    allergens:'Only list allergens if detected.',
-    origin:'Only answer with the country of origin.',
-    recommend:'Brief yes/no/caution based on expiry (expired→no) and allergens (conflict→no).',
-    general:'Answer briefly using relevant facts.'
-  }[I];
-  return {
-    system:`You are a concise shopping assistant.\n${langLine}\nDo NOT list all facts. ${topic}\nOne short sentence only.`,
-    user:`FACTS=${JSON.stringify(facts)}\nQUESTION=${q}`
-  };
-}
-async function askFree(){
-  const q = ($('#q').value||'').trim();
-  if(!q){ $('#qaOut').textContent='اول یک سؤال بنویسید.'; return; } // require a question
-  if(!state.ocrMerged.text){ $('#qaOut').textContent='Run OCR (All Views) first.'; return; }
-  try{
-    await ensureModel();
-    $('#qaOut').textContent='Thinking…';
-    const {system,user} = promptFor(q);
-    const r = await chat.chat.completions.create({ messages:[{role:'system',content:system},{role:'user',content:user}] });
-    $('#qaOut').textContent = r?.choices?.[0]?.message?.content || '(no reply)';
-  }catch(e){
-    console.error(e);
-    $('#qaOut').textContent='(Local AI not ready.)';
-  }
-}
-$('#askFree').addEventListener('click', askFree);
 
-/* ===== init ===== */
-(async function init(){ if(navigator.mediaDevices?.getUserMedia){ await listCameras(); } updateFacts(); })();
+function detectLang(s){
+  if(/[가-힣]/.test(s)) return 'KR';
+  if(/[اأإآدذرزوژءيىۀۀگچپکملتنسفغهصضطظقحشثخجڅऋ]/.test(s)) return 'FA'; // very rough
+  return 'EN';
+}
+function intent(q){
+  const s=q.toLowerCase();
+  if(/how much|price|가격|얼마|قیمت/.test(s)) return 'price';
+  if(/expiry|expiration|유통기한|소비기한|انقضا/.test(s)) return 'expiry';
+  if(/mfg|manufactur|제조|تولید/.test(s)) return 'mfg';
+  if(/allergen|알레르기|آلرژن|sensitive/.test(s)) return 'allergens';
+  if(/origin|원산지|مبدأ|کشور/.test(s)) return 'origin';
+  if(/should i buy|recommend|괜찮아|사도될까|بخرم/.test(s)) return 'recommend';
+  return 'general';
+}
+
+function fallbackAnswer(q){
+  const L=detectLang(q); const I=intent(q); const m=state.merged;
+  const say=(en,kr,fa)=> (L==='KR'?kr:(L==='FA'?fa:en));
+  if(I==='price') return m.price? say(`Price ${fmtPriceObj(m.price)}.`,`가격 ${fmtPriceObj(m.price)}.`,`قیمت ${fmtPriceObj(m.price)}.`) : say('Price not detected.','가격 정보를 찾지 못했습니다.','قیمت پیدا نشد.');
+  if(I==='expiry') return m.expiry? say(`Expiry ${m.expiry.toISOString().slice(0,10)}.`,`유통기한 ${m.expiry.toISOString().slice(0,10)}.`,`تاریخ انقضا ${m.expiry.toISOString().slice(0,10)}.`) : say('No expiry date found.','유통기한 정보를 찾지 못했습니다.','تاریخ انقضا پیدا نشد.');
+  if(I==='mfg') return m.mfg? say(`Manufactured on ${m.mfg.toISOString().slice(0,10)}.`,`제조일 ${m.mfg.toISOString().slice(0,10)}.`,`تاریخ تولید ${m.mfg.toISOString().slice(0,10)}.`):say('No manufacturing date found.','제조일 정보를 찾지 못했습니다.','تاریخ تولید پیدا نشد.');
+  if(I==='allergens'){ const a=m.allergens.size?[...m.allergens].join(', '):null; return a? say(`Allergens: ${a}.`,`알레르겐: ${a}.`,`آلرژن‌ها: ${a}.`): say('No allergen keywords detected.','알레르겐 키워드 없음.','آلرژنی یافت نشد.'); }
+  if(I==='origin') return m.origin? say(`Origin: ${m.origin}.`,`원산지: ${m.origin}.`,`مبدأ: ${m.origin}.`) : say('Origin not found.','원산지 정보를 찾지 못했습니다.','کشور مبدأ پیدا نشد.');
+  if(I==='recommend'){
+    const expired=m.expiry? (m.expiry - new Date())<0 : null;
+    const conflict=[...m.allergens].some(a=> $$('.allergen:checked').map(x=>x.value).includes(a));
+    if(expired||conflict) return say('⛔ Not recommended.','⛔ 비추천.','⛔ توصیه نمی‌شود.');
+    return say('✅ Recommended.','✅ 추천.','✅ توصیه می‌شود.');
+  }
+  // general: if nothing clear, show most relevant known
+  if(m.price) return fallbackAnswer('price');
+  if(m.expiry) return fallbackAnswer('expiry');
+  return say('No specific info available.','관련 정보를 찾지 못했습니다.','پاسخ مشخصی پیدا نشد.');
+}
+
+$('#ask').addEventListener('click', async ()=>{
+  const q=($('#q').value||'').trim();
+  if(!q){ $('#qaOut').textContent = 'اول یک سؤال بنویسید.'; return; }
+  if(!state.merged.text){ $('#qaOut').textContent='First run OCR (All Views).'; return; }
+
+  // Try local model if available; else fallback
+  try{
+    if(hasWebGPU) await ensureModel();
+    if(!ready){ $('#qaOut').textContent = fallbackAnswer(q); return; }
+
+    const L=detectLang(q); const I=intent(q);
+    const facts={
+      price: state.merged.price? fmtPriceObj(state.merged.price) : null,
+      expiry: state.merged.expiry? state.merged.expiry.toISOString().slice(0,10):null,
+      mfg: state.merged.mfg? state.merged.mfg.toISOString().slice(0,10):null,
+      allergens: state.merged.allergens.size? [...state.merged.allergens] : [],
+      origin: state.merged.origin||null
+    };
+    const sys = (L==='KR'?'답변은 한국어로만.':(L==='FA'?'فقط فارسی پاسخ بده.':'Answer only in English.')) +
+      ` Keep it short. Do NOT list all facts; answer ONLY what is asked (${I}).`;
+    const prompt = `FACTS=${JSON.stringify(facts)}\nQUESTION=${q}`;
+    $('#qaOut').textContent='Thinking…';
+    const r=await chat.chat.completions.create({messages:[{role:'system',content:sys},{role:'user',content:prompt}]});
+    const txt=r?.choices?.[0]?.message?.content?.trim();
+    $('#qaOut').textContent = txt || fallbackAnswer(q);
+  }catch(e){
+    console.error(e); $('#qaOut').textContent = fallbackAnswer(q);
+  }
+});
+
+/* ====== UTIL BUTTONS ====== */
+$('#copyAll').addEventListener('click',async ()=>{
+  const all=state.views.map((v,i)=>`[View ${i+1}]\n${v.text||''}`).join('\n\n')||'';
+  await navigator.clipboard.writeText(all); alert('OCR text copied.');
+});
+$('#dlTxt').addEventListener('click',()=>{
+  const all=state.views.map((v,i)=>`[View ${i+1}]\n${v.text||''}`).join('\n\n')||'';
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([all],{type:'text/plain'})); a.download='ocr_all.txt'; a.click(); URL.revokeObjectURL(a.href);
+});
+
+/* ====== INIT ====== */
+(async function init(){
+  if(navigator.mediaDevices?.getUserMedia){ await listCameras(); }
+  if(isMobile){ // auto-start on mobile to back camera
+    startCamera();
+  }
+})();
 </script>
 </body>
 </html>
