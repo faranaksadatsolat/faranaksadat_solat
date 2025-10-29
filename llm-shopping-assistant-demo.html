@@ -23,7 +23,7 @@
     .card{background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .row>*{flex:1}
-    select,input[type="text"],input[type="number"],textarea{width:100%;background:#0b1430;color:var(--ink);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}
+    select,input[type="text"],textarea{width:100%;background:#0b1430;color:var(--ink);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}
     button{border:0;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);color:#071021;font-weight:700;cursor:pointer;box-shadow:0 10px 28px rgba(100,214,255,.25);transition:transform .06s}
     button.secondary{background:#121a36;color:var(--ink);border:1px solid rgba(255,255,255,.12);box-shadow:none}
     button.danger{background:linear-gradient(135deg,#ff7b7b,#fcb0a9);color:#2b0b0b}
@@ -63,7 +63,7 @@
     <div class="grid">
       <!-- LEFT: capture / gallery / OCR -->
       <section class="card" aria-label="Capture and analyze">
-        <h2>1) Capture faces (multi‑view)</h2>
+        <h2>1) Capture label (multi‑view)</h2>
         <div class="row">
           <select id="cameraSelect"></select>
           <button id="startCam">Start Camera</button>
@@ -121,10 +121,6 @@
           <label class="pill"><input type="checkbox" class="allergen" value="egg"> Egg / 계란</label>
           <label class="pill"><input type="checkbox" class="allergen" value="shellfish"> Shellfish</label>
         </div>
-        <div class="row" style="margin-top:8px">
-          <input id="budget" type="number" placeholder="Budget (₩) e.g., 10000" />
-          <input id="minDays" type="number" placeholder=">= days to expiry e.g., 3" />
-        </div>
         <h2 style="margin-top:12px">Auto‑verdict</h2>
         <div id="verdict" class="out">Add 2–5 views and run OCR to see the verdict.</div>
         <h2 style="margin-top:12px">Quick facts (merged)</h2>
@@ -136,7 +132,7 @@
           <div>Origin</div><div id="fOrigin">—</div>
           <div>Views</div><div id="fViews">0</div>
         </div>
-        <div class="footer">© 2025 Faranaksadat Solat • Patent 10‑2865941 • SIIF 2025 Multi‑View Demo</div>
+        <div class="footer">© 2025 Faranaksadat Solat • Patent 10‑2865941 • SIIF 2025 Demo</div>
       </aside>
     </div>
   </div>
@@ -153,74 +149,48 @@ function stopCamera(){if(state.stream){state.stream.getTracks().forEach(t=>t.sto
 $('#cameraSelect').addEventListener('change',e=>{state.deviceId=e.target.value;startCamera()});$('#startCam').addEventListener('click',startCamera);$('#stopCam').addEventListener('click',stopCamera);
 
 // CAPTURE (color preview; grayscale only for OCR)
-function drawForOCR(canvas,src){const w=src.videoWidth||src.naturalWidth;const h=src.videoHeight||src.naturalHeight;canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.filter='grayscale(1) contrast(1.8) brightness(1.15)';ctx.drawImage(src,0,0,w,h)}
 function addImageFromSource(src){const c=document.createElement('canvas');const w=src.videoWidth||src.naturalWidth;const h=src.videoHeight||src.naturalHeight;c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.drawImage(src,0,0,w,h);const data=c.toDataURL('image/png');state.images.push({data});renderGallery();updateFacts()}
 function renderGallery(){const g=$('#gallery');g.innerHTML='';state.images.forEach((img,i)=>{const el=document.createElement('div');el.className='thumb';el.innerHTML=`<div class="actions"><button class="secondary" data-i="${i}" data-act="del">✕</button></div><img src="${img.data}" alt="view ${i+1}"><div class="meta">View ${i+1}</div>`;g.appendChild(el)});g.querySelectorAll('button[data-act="del"]').forEach(b=>b.onclick=(e)=>{const idx=parseInt(e.target.dataset.i,10);state.images.splice(idx,1);renderGallery();updateFacts();})}
 $('#addView').addEventListener('click',()=>{if(state.images.length>=5){alert('Up to 5 views supported.');return;}const v=$('#video');if(!state.stream&&v.srcObject==null){alert('Start the camera or upload an image.');return;}addImageFromSource(v)});
 $('#clearAll').addEventListener('click',()=>{state.images=[];state.ocrLogs=[];state.ocrMerged={text:'',price:null,expiry:null,mfg:null,allergens:new Set(),origin:null};renderGallery();$('#ocrOut').textContent='';updateFacts();$('#verdict').textContent='Add 2–5 views and run OCR to see the verdict.'});
 $('#fileInput').addEventListener('change',ev=>{const f=ev.target.files?.[0];if(!f)return;const url=URL.createObjectURL(f);const img=new Image();img.onload=()=>{addImageFromSource(img);URL.revokeObjectURL(url)};img.src=url});
 
+// TEXT NORMALIZATION FOR DATES
+function normalizeForDates(s){return (s||'').replace(/[O○]/g,'0').replace(/[lI|]/g,'1').replace(/S/g,'5').replace(/B/g,'8')}
+
 // PARSERS
-function findAllDates(t){const rx=/(\b20\d{2})[.\/\- ]?([01]?\d)[.\/\- ]?([0-3]?\d)\b/g;const out=[];let m;while((m=rx.exec(t))){const y=+m[1],mo=(+m[2])-1,d=+m[3];const dt=new Date(y,mo,d);if(!isNaN(dt))out.push({dt,idx:m.index})}return out}
-function classifyDates(t){const dates=findAllDates(t);let expiry=null,mfg=null;const lower=t.toLowerCase();const expKeys=[/유통기한|소비기한|expiry|exp\b|best\s*before/i];const mfgKeys=[/제조일|제조|생산일|생산|mfg\b|manufactured|made\s*on/i];for(const d of dates){const w=lower.slice(Math.max(0,d.idx-20),d.idx+20);if(expKeys.some(rx=>rx.test(w)))expiry=d.dt; if(mfgKeys.some(rx=>rx.test(w)))mfg=d.dt;}if(!expiry){expiry=dates.map(x=>x.dt).sort((a,b)=>a-b).slice(-1)[0];if(dates.length>1){mfg=dates.map(x=>x.dt).sort((a,b)=>a-b)[0];}}return{expiry,mfg}}
-function parsePrice(t){ // supports: ₩12,345 | 12,345원 | W 12345 | 12345 (alone line with price keyword)
-  const m = t.match(/(?:₩|\bW\b)\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})/i) ||
-            t.match(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})\s*원/) ||
-            t.match(/price[:\s]*([0-9]{3,7}(?:,[0-9]{3})?)/i);
-  if(!m) return null; const n=parseInt(m[1].replace(/[^0-9]/g,''),10); return isFinite(n)?n:null;
-}
+function findAllDates(raw){const t=normalizeForDates(raw);const out=[];const rx1=/(\b20\d{2})[.\/\- ]?([01]?\d)[.\/\- ]?([0-3]?\d)\b/g;let m;while((m=rx1.exec(t))){const y=+m[1],mo=(+m[2])-1,d=+m[3];const dt=new Date(y,mo,d);if(!isNaN(dt))out.push({dt,idx:m.index})}return out}
+function classifyDates(t){const dates=findAllDates(t);let expiry=null,mfg=null;const lower=normalizeForDates(t).toLowerCase();const expKeys=[/유통기한|소비기한|expiry|exp\b|best\s*before/i];const mfgKeys=[/제조일|제조|생산일|생산|mfg\b|manufactured|made\s*on/i];for(const d of dates){const w=lower.slice(Math.max(0,d.idx-24),d.idx+24);if(expKeys.some(rx=>rx.test(w)))expiry=d.dt; if(mfgKeys.some(rx=>rx.test(w)))mfg=d.dt;}if(!expiry){expiry=dates.map(x=>x.dt).sort((a,b)=>a-b).slice(-1)[0];if(dates.length>1){mfg=dates.map(x=>x.dt).sort((a,b)=>a-b)[0];}}return{expiry,mfg}}
+function parsePrice(t){const m=t.match(/(?:₩|\bW\b)\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})/i)||t.match(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})\s*원/)||t.match(/price[:\s]*([0-9]{3,7}(?:,[0-9]{3})?)/i);if(!m)return null;const n=parseInt(m[1].replace(/[^0-9]/g,''),10);return isFinite(n)?n:null}
 const ALLERGENS={milk:[/\bmilk\b/i,/우유/,/乳/],soy:[/\bsoy\b/i,/대두/],nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],peanut:[/\bpeanut/i,/땅콩/],gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],egg:[/\begg\b/i,/계란/,/난류/],shellfish:[/shrimp/i,/crab/i,/lobster/i,/shellfish/i,/조개/,/새우/,/게/]};
 function detectAllergens(t){const s=new Set();for(const[k,arr]of Object.entries(ALLERGENS))if(arr.some(rx=>rx.test(t)))s.add(k);return s}
 const ORIGINS=[{k:/한국|대한민국|국내산|made in korea|korea/i,v:'Korea'},{k:/usa|미국|made in usa/i,v:'USA'},{k:/japan|일본/i,v:'Japan'},{k:/china|중국/i,v:'China'},{k:/iran|이란/i,v:'Iran'}];
 function detectOrigin(t){for(const o of ORIGINS)if(o.k.test(t))return o.v;return null}
 
 // OCR ALL VIEWS
-async function runOCRAll(){if(state.images.length===0){alert('Add at least 1 view.');return}const lang=$('#lang').value||'eng+kor';const pbar=$('#pbar');state.ocrLogs=[];let mergedText='';let mergedPrice=null;let mergedExpiry=null;let mergedMfg=null;let mergedAllergens=new Set();const originVotes={};let i=0;for(const img of state.images){i++; // materialize
-  const base=document.createElement('canvas');const ctx=base.getContext('2d',{willReadFrequently:true});await new Promise(res=>{const im=new Image();im.onload=()=>{base.width=im.naturalWidth;base.height=im.naturalHeight;ctx.filter='grayscale(1) contrast(1.7) brightness(1.15)';ctx.drawImage(im,0,0,base.width,base.height);res()};im.src=img.data});
-  const pass1=await Tesseract.recognize(base,lang,{logger:m=>{if(m.status==='recognizing text'){pbar.style.width=Math.round(((i-1)+m.progress)/state.images.length*100)+'%'}}});
-  let text=(pass1.data.text||'').trim();
-  // extra numeric ROI
-  const roi=document.createElement('canvas');roi.width=base.width;roi.height=Math.floor(base.height*0.5);const rctx=roi.getContext('2d');rctx.filter='grayscale(1) contrast(1.9) brightness(1.2)';rctx.drawImage(base,0,0,base.width,roi.height,0,0,roi.width,roi.height);
-  const pass2=await Tesseract.recognize(roi,'eng',{tessedit_char_whitelist:'0123456789.-/ 원W'});
-  text += '\n'+(pass2.data.text||'');
-  // per-view extract
-  const {expiry,mfg}=classifyDates(text);const price=parsePrice(text);const allergens=detectAllergens(text);const origin=detectOrigin(text);
-  mergedText += `\n[View ${i}]\n`+text+"\n";
-  if(price!=null) mergedPrice=(mergedPrice==null)?price:Math.min(mergedPrice,price);
-  if(expiry){mergedExpiry=!mergedExpiry?expiry:(expiry>mergedExpiry?expiry:mergedExpiry)}
-  if(mfg){mergedMfg=!mergedMfg?mfg:(mfg<mergedMfg?mfg:mergedMfg)}
-  allergens.forEach(a=>mergedAllergens.add(a));
-  if(origin){originVotes[origin]=(originVotes[origin]||0)+1}
-  state.ocrLogs.push({i,text,price,expiry,mfg,allergens:[...allergens],origin});
-}
-let majorityOrigin=null,maxV=0;for(const[k,v]of Object.entries(originVotes)){if(v>maxV){maxV=v;majorityOrigin=k}}
-state.ocrMerged={text:mergedText,price:mergedPrice,expiry:mergedExpiry,mfg:mergedMfg,allergens:mergedAllergens,origin:majorityOrigin};
-$('#ocrOut').textContent=state.ocrLogs.map(v=>`View ${v.i}: price=${v.price??'—'}, expiry=${v.expiry?v.expiry.toISOString().slice(0,10):'—'}, mfg=${v.mfg?v.mfg.toISOString().slice(0,10):'—'}, origin=${v.origin||'—'}, allergens=${v.allergens.join(', ')||'—'}`).join('\n');
-updateFacts();
-verdict();
-pbar.style.width='0%'}
-
+async function runOCRAll(){if(state.images.length===0){alert('Add at least 1 view.');return}const lang=$('#lang').value||'eng+kor';const pbar=$('#pbar');state.ocrLogs=[];let mergedText='';let mergedPrice=null;let mergedExpiry=null;let mergedMfg=null;let mergedAllergens=new Set();const originVotes={};let i=0;for(const img of state.images){i++;const base=document.createElement('canvas');const ctx=base.getContext('2d',{willReadFrequently:true});await new Promise(res=>{const im=new Image();im.onload=()=>{base.width=im.naturalWidth;base.height=im.naturalHeight;ctx.filter='grayscale(1) contrast(1.7) brightness(1.15)';ctx.drawImage(im,0,0,base.width,base.height);res()};im.src=img.data});const pass1=await Tesseract.recognize(base,lang,{logger:m=>{if(m.status==='recognizing text'){pbar.style.width=Math.round(((i-1)+m.progress)/state.images.length*100)+'%'}}});let text=(pass1.data.text||'').trim();const roi=document.createElement('canvas');roi.width=base.width;roi.height=Math.floor(base.height*0.5);const rctx=roi.getContext('2d');rctx.filter='grayscale(1) contrast(1.9) brightness(1.2)';rctx.drawImage(base,0,0,base.width,roi.height,0,0,roi.width,roi.height);const pass2=await Tesseract.recognize(roi,'eng',{tessedit_char_whitelist:'0123456789.-/ 원W'});text+='\n'+(pass2.data.text||'');const {expiry,mfg}=classifyDates(text);const price=parsePrice(text);const allergens=detectAllergens(text);const origin=detectOrigin(text);mergedText+=`\n[View ${i}]\n`+text+"\n";if(price!=null)mergedPrice=(mergedPrice==null)?price:Math.min(mergedPrice,price);if(expiry){mergedExpiry=!mergedExpiry?expiry:(expiry>mergedExpiry?expiry:mergedExpiry)}if(mfg){mergedMfg=!mergedMfg?mfg:(mfg<mergedMfg?mfg:mergedMfg)}allergens.forEach(a=>mergedAllergens.add(a));if(origin){originVotes[origin]=(originVotes[origin]||0)+1}state.ocrLogs.push({i,text,price,expiry,mfg,allergens:[...allergens],origin});}
+let majorityOrigin=null,maxV=0;for(const[k,v]of Object.entries(originVotes)){if(v>maxV){maxV=v;majorityOrigin=k}}state.ocrMerged={text:mergedText,price:mergedPrice,expiry:mergedExpiry,mfg:mergedMfg,allergens:mergedAllergens,origin:majorityOrigin};$('#ocrOut').textContent=state.ocrLogs.map(v=>`View ${v.i}: price=${v.price??'—'}, expiry=${v.expiry?v.expiry.toISOString().slice(0,10):'—'}, mfg=${v.mfg?v.mfg.toISOString().slice(0,10):'—'}, origin=${v.origin||'—'}, allergens=${v.allergens.join(', ')||'—'}`).join('\n');updateFacts();verdict();pbar.style.width='0%'}
 $('#runOCR').addEventListener('click',runOCRAll);
 $('#copyOCR').addEventListener('click',async()=>{const t=(state.ocrMerged.text||'').trim();await navigator.clipboard.writeText(t);alert('All OCR text copied.')});
 $('#downloadTxt').addEventListener('click',()=>{const blob=new Blob([state.ocrMerged.text||''],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ocr_all_views.txt';a.click();URL.revokeObjectURL(a.href)});
 
 // FACTS + VERDICT
 function updateFacts(){const m=state.ocrMerged||{};$('#fPrice').textContent=fmtKRW(m.price);$('#fExpiry').textContent=m.expiry?m.expiry.toISOString().slice(0,10):'—';$('#fMfg').textContent=m.mfg?m.mfg.toISOString().slice(0,10):'—';$('#fAllergen').textContent=(m.allergens&&m.allergens.size)?[...m.allergens].join(', '):'—';$('#fOrigin').textContent=m.origin||'—';$('#fViews').textContent=state.images.length}
-function verdict(){const t=(state.ocrMerged.text||'').toLowerCase();const userAll=$$('.allergen:checked').map(x=>x.value);const budget=parseInt($('#budget').value||'0',10);const minDays=parseInt($('#minDays').value||'0',10);const price=state.ocrMerged.price;const expiry=state.ocrMerged.expiry;let issues=[];const found=[...(state.ocrMerged.allergens||[])];const conflict=found.filter(a=>userAll.includes(a));if(conflict.length)issues.push('Allergen conflict: '+conflict.join(', '));if(expiry){const days=Math.ceil((expiry-new Date())/86400000);if(days<0)issues.push('Expired');else if(days<(isFinite(minDays)?minDays:0))issues.push(`Only ${days} day(s) left (< ${minDays})`)}else issues.push('No expiry date found');if(isFinite(budget)&&budget>0){if(price==null)issues.push('No price found');else if(price>budget)issues.push(`Over budget: ${fmtKRW(price)} > ${fmtKRW(budget)}`)}if(/오염|변색|손상|damaged|leak|bulge|swollen/i.test(t))issues.push('Quality issue keywords present');const box=$('#verdict');if(issues.length===0)box.innerHTML=`<span class="pill ok">✅ Recommended</span> Looks good for your profile.`;else if(issues.some(s=>/Expired|Allergen|Over budget|Quality/.test(s)))box.innerHTML=`<span class="pill no">⛔ Not Recommended</span>\n- `+issues.join('\n- ');else box.innerHTML=`<span class="pill warn">⚠️ Caution</span>\n- `+issues.join('\n- ') }
-$$('.allergen').forEach(cb=>cb.addEventListener('change',verdict));$('#budget').addEventListener('input',verdict);$('#minDays').addEventListener('input',verdict);
+function verdict(){const t=(state.ocrMerged.text||'').toLowerCase();const userAll=$$('.allergen:checked').map(x=>x.value);const price=state.ocrMerged.price;const expiry=state.ocrMerged.expiry;let issues=[];const found=[...(state.ocrMerged.allergens||[])];const conflict=found.filter(a=>userAll.includes(a));if(conflict.length)issues.push('Allergen conflict: '+conflict.join(', '));if(expiry){const days=Math.ceil((expiry-new Date())/86400000);if(days<0)issues.push('Expired');}else issues.push('No expiry date found');if(/오염|변색|손상|damaged|leak|bulge|swollen/i.test(t))issues.push('Quality issue keywords present');const box=$('#verdict');if(issues.length===0)box.innerHTML=`<span class="pill ok">✅ Recommended</span> Looks good for your profile.`;else if(issues.some(s=>/Expired|Allergen|Quality/.test(s)))box.innerHTML=`<span class="pill no">⛔ Not Recommended</span>\n- `+issues.join('\n- ');else box.innerHTML=`<span class="pill warn">⚠️ Caution</span>\n- `+issues.join('\n- ') }
+$$('.allergen').forEach(cb=>cb.addEventListener('change',verdict));
 
 // LOCAL Q&A (rule‑based fallback, tri‑lingual)
 function triReplyFromFacts(){const m=state.ocrMerged||{};const p=m.price!=null?fmtKRW(m.price):'—';const ex=m.expiry?m.expiry.toISOString().slice(0,10):'—';const mf=m.mfg?m.mfg.toISOString().slice(0,10):'—';const al=(m.allergens&&m.allergens.size)?[...m.allergens].join(', '):'—';const or=m.origin||'—';return (
-`EN: Price ${p}, Expiry ${ex}, MFG ${mf}, Allergens ${al}, Origin ${or}.\n`+
-`KR: 가격 ${p}, 유통기한 ${ex}, 제조일 ${mf}, 알레르겐 ${al}, 원산지 ${or}.\n`+
-`FA: قیمت ${p}، تاریخ انقضا ${ex}، تاریخ تولید ${mf}، آلرژن‌ها ${al}، مبدأ ${or}.`)}
+`EN: Price ${p}. Expiry ${ex}.\n`+
+`KR: 가격 ${p}. 유통기한 ${ex}.\n`+
+`FA: قیمت ${p}. تاریخ انقضا ${ex}.`)}
 $('#askRule').addEventListener('click',()=>{if(!state.ocrMerged.text){$('#qaOut').textContent='Run OCR (All Views) first.';return}$('#qaOut').textContent=triReplyFromFacts()});
 
-// FREE AI (WebLLM) — phi‑3 mini, 3‑language answer
+// FREE AI (WebLLM) — phi‑3 mini, 3‑language concise answer to user's question
 let chat=null, modelReady=false, modelName='Phi-3-mini-4k-instruct-q4f16_1-MLC';
-async function ensureModel(){ if(modelReady) return; try{ chat = await window.mlc.ai.createMLCEngine({model:modelName,progressCallback:(p)=>{ $('#qaOut').textContent = `Loading local AI… ${Math.round((p?.progress||0)*100)}%`; }}); modelReady=true; }catch(e){ $('#qaOut').textContent='Local AI init failed, using offline summary.'; throw e; } }
-function buildPrompt(){ const facts={ price:$('#fPrice').textContent, expiry:$('#fExpiry').textContent, mfg:$('#fMfg').textContent, allergens:$('#fAllergen').textContent, origin:$('#fOrigin').textContent, views:$('#fViews').textContent }; const userQ=$('#q').value||'Overall safety and value?'; const ocr=(state.ocrMerged.text||'').slice(0,4000); return `You are a helpful shopping assistant. Use the OCR text and facts to answer briefly in THREE languages:\n1) English,\n2) Korean,\n3) Persian (Farsi).\nKeep each language to 2 short sentences.\n\nFACTS=${JSON.stringify(facts)}\n\nOCR=\n${ocr}\n\nQUESTION=${userQ}`; }
-async function askFree(){ if(!state.ocrMerged.text){$('#qaOut').textContent='Run OCR (All Views) first.';return} try{ await ensureModel(); const prompt=buildPrompt(); $('#qaOut').textContent='Thinking with local AI…'; const reply = await chat.chat.completions.create({ messages:[{role:'user',content:prompt}] }); const text = reply?.choices?.[0]?.message?.content || '(no reply)'; $('#qaOut').textContent=text; }catch(e){ console.error(e); $('#qaOut').textContent=triReplyFromFacts(); } }
+async function ensureModel(){ if(modelReady) return; chat = await window.mlc.ai.createMLCEngine({model:modelName,progressCallback:(p)=>{ $('#qaOut').textContent = `Loading local AI… ${Math.round((p?.progress||0)*100)}%`; }}); modelReady=true; }
+function buildPrompt(userQ){ const facts={ price:$('#fPrice').textContent, expiry:$('#fExpiry').textContent, mfg:$('#fMfg').textContent, allergens:$('#fAllergen').textContent, origin:$('#fOrigin').textContent, views:$('#fViews').textContent }; const ocr=(state.ocrMerged.text||'').slice(0,2500); return { system: `You are a shopping assistant. Answer the USER'S QUESTION directly and briefly using the provided facts and OCR. Do NOT repeat all facts unless needed. Output EXACTLY three short sections labeled EN:, KR:, FA:. Each section must be 1–2 short sentences, user-friendly.`, user: `FACTS=${JSON.stringify(facts)}\nOCR(first 2500 chars)=\n${ocr}\n\nQUESTION=${userQ}` }; }
+async function askFree(){ if(!state.ocrMerged.text){$('#qaOut').textContent='Run OCR (All Views) first.';return} try{ await ensureModel(); const q=$('#q').value||'Is it safe and worth buying?'; const {system,user}=buildPrompt(q); $('#qaOut').textContent='Thinking with local AI…'; const reply = await chat.chat.completions.create({ messages:[{role:'system',content:system},{role:'user',content:user}] }); const text = reply?.choices?.[0]?.message?.content || '(no reply)'; $('#qaOut').textContent=text; }catch(e){ console.error(e); $('#qaOut').textContent=triReplyFromFacts(); } }
 $('#askFree').addEventListener('click',askFree);
 
 // INIT
