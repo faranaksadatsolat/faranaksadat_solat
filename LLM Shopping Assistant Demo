@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLM Shopping Assistant • Faranaksadat Solat (SIIF 2025)</title>
+  <!-- Tesseract.js OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b1020;/* deep navy */
+      --card:#111833;/* slate */
+      --ink:#ecf2ff;/* ice */
+      --muted:#9fb3ff;/* periwinkle */
+      --accent:#6ee7b7;/* mint */
+      --accent-2:#a78bfa;/* violet */
+      --danger:#ff6b6b;/* coral */
+      --warn:#ffd166;/* amber */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020); color:var(--ink);
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 8px 32px rgba(167,139,250,.35)}
+    h1{font-size:clamp(18px,2.8vw,28px);margin:0;font-weight:800;letter-spacing:.3px}
+    .sub{color:var(--muted);font-size:12px}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+    @media(max-width:980px){.grid{grid-template-columns:1fr}.panel.sticky{position:relative;top:auto}}
+
+    .card{background:linear-gradient(180deg,#121a36 0%, #0e1630 100%);border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:16px}
+    .card h2{margin:.2rem 0 8px;font-size:16px;opacity:.95}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .row > *{flex:1}
+    .controls .row > *{flex:unset}
+    select, input[type="text"], input[type="number"], textarea{width:100%;background:#0b1430;color:var(--ink);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px}
+    button{border:0;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);color:#071021;font-weight:700;cursor:pointer;box-shadow:0 10px 28px rgba(100,214,255,.25);transition:transform .06s ease}
+    button:active{transform:translateY(1px)}
+    button.secondary{background:#121a36;color:var(--ink);border:1px solid rgba(255,255,255,.12);box-shadow:none}
+    button.danger{background:linear-gradient(135deg,#ff7b7b,#fcb0a9);color:#2b0b0b}
+    .badge{display:inline-flex;align-items:center;gap:6px;background:#0f1838;border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted)}
+    .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 10px;font-size:12px}
+    .ok{color:#052; background:rgba(110,231,183,.14); border-color:rgba(110,231,183,.35)}
+    .warn{color:#502; background:rgba(255,209,102,.14); border-color:rgba(255,209,102,.38)}
+    .no{color:#520; background:rgba(255,107,107,.14); border-color:rgba(255,107,107,.38)}
+
+    .media{display:grid;grid-template-columns:1fr;gap:10px}
+    video, canvas, img{width:100%;max-height:360px;border-radius:14px;background:#0b1430;border:1px solid rgba(255,255,255,.08);object-fit:contain}
+    .progress{height:10px;background:#0b1430;border:1px solid rgba(255,255,255,.1);border-radius:999px;overflow:hidden}
+    .bar{height:100%;width:0;background:linear-gradient(90deg,#6ee7b7,#a78bfa)}
+
+    .flex{display:flex;gap:8px;align-items:center}
+    .sticky{position:sticky;top:16px}
+    .kv{display:grid;grid-template-columns:120px 1fr;gap:6px;font-size:13px}
+    .kv div:nth-child(odd){color:var(--muted)}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
+    .out{white-space:pre-wrap;background:#0b1430;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;min-height:54px}
+    .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+    .chip{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;background:#0f1838;border:1px solid rgba(255,255,255,.1);font-size:12px}
+    .switch{display:flex;gap:8px;flex-wrap:wrap}
+    .switch label{display:flex;align-items:center;gap:6px}
+    .switch input{transform:translateY(1px)}
+    .hl{color:#aee7ff}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>LLM Shopping Assistant — SIIF 2025 Demo</h1>
+          <div class="sub">Inventor: <strong>Faranaksadat Solat</strong> • Patent No. <span class="mono">10-2865941</span> • Category: <span class="mono">N — Information Technology</span></div>
+        </div>
+      </div>
+      <div class="badge" title="On‑device processing with privacy by default">🔒 On‑device OCR</div>
+    </header>
+
+    <div class="grid">
+      <!-- LEFT: Capture / OCR / Q&A -->
+      <section class="card" aria-label="Capture and analyze">
+        <h2>1) Capture label or upload image</h2>
+        <div class="controls row">
+          <select id="cameraSelect" title="Choose camera"></select>
+          <button id="startCam">Start Camera</button>
+          <button id="stopCam" class="secondary">Stop</button>
+          <label class="pill" for="fileInput">Upload Image <input type="file" id="fileInput" accept="image/*" style="display:none"></label>
+        </div>
+
+        <div class="media">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="canvas" hidden></canvas>
+          <img id="preview" alt="Captured label preview" hidden />
+        </div>
+        <div class="row">
+          <button id="capture">📸 Capture</button>
+          <button id="clear" class="secondary">Clear</button>
+          <div class="pill">Zoom: <input id="zoom" type="range" min="1" max="2" step="0.01" value="1" style="width:140px"></div>
+        </div>
+
+        <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:14px 0"/>
+
+        <h2>2) OCR & translation</h2>
+        <div class="row">
+          <select id="lang">
+            <option value="eng+kor">English + Korean</option>
+            <option value="eng">English</option>
+            <option value="kor">Korean</option>
+            <option value="eng+kor+fas">English + Korean + Persian (beta)</option>
+          </select>
+          <button id="runOCR">Run OCR</button>
+        </div>
+        <div class="progress" aria-label="OCR progress"><div id="pbar" class="bar"></div></div>
+        <div id="ocrOut" class="out" aria-live="polite">OCR output will appear here…</div>
+
+        <div class="row" style="margin-top:8px">
+          <button id="smartTranslate">Smart Translate / Allergen Hints</button>
+          <button id="copyOCR" class="secondary">Copy Text</button>
+          <button id="downloadTxt" class="secondary">Download .txt</button>
+        </div>
+        <div id="translateOut" class="out" aria-live="polite">Translation & risk highlights…</div>
+
+        <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:14px 0"/>
+
+        <h2>3) Ask about the product</h2>
+        <div class="row">
+          <input id="q" type="text" placeholder="e.g., Should I buy it? Any allergens? How much is it?" />
+          <button id="ask">Ask</button>
+        </div>
+        <div id="qaOut" class="out" aria-live="polite">Assistant will respond here…</div>
+      </section>
+
+      <!-- RIGHT: Profile / Verdict / Meta -->
+      <aside class="card panel sticky" aria-label="Settings and verdict">
+        <h2>Buyer profile</h2>
+        <div class="switch">
+          <label><input type="checkbox" class="allergen" value="milk"> Milk / 우유</label>
+          <label><input type="checkbox" class="allergen" value="soy"> Soy / 대두</label>
+          <label><input type="checkbox" class="allergen" value="nuts"> Tree Nuts / 견과류</label>
+          <label><input type="checkbox" class="allergen" value="peanut"> Peanut / 땅콩</label>
+          <label><input type="checkbox" class="allergen" value="gluten"> Gluten / 글루텐</label>
+          <label><input type="checkbox" class="allergen" value="egg"> Egg / 계란</label>
+          <label><input type="checkbox" class="allergen" value="shellfish"> Shellfish</label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input id="budget" type="number" placeholder="Budget threshold (₩) e.g., 10000" />
+          <input id="minDays" type="number" placeholder=">= days to expiry e.g., 3" />
+        </div>
+
+        <h2 style="margin-top:12px">Auto‑verdict</h2>
+        <div id="verdict" class="out">Run OCR to see the live verdict.
+        </div>
+
+        <h2 style="margin-top:12px">Quick facts</h2>
+        <div class="kv mono" id="facts">
+          <div>Detected Price</div><div id="fPrice">—</div>
+          <div>Expiry</div><div id="fExpiry">—</div>
+          <div>Allergens</div><div id="fAllergen">—</div>
+          <div>Origin</div><div id="fOrigin">—</div>
+        </div>
+
+        <div class="footer">
+          © 2025 Faranaksadat Solat • Patent 10‑2865941 • Demo for SIIF 2025
+        </div>
+      </aside>
+    </div>
+  </div>
+
+<script>
+// ==========================
+// UTILITIES
+// ==========================
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const state = {
+  stream: null,
+  deviceId: null,
+  zoom: 1,
+  ocrText: '',
+  lastImage: null,
+};
+
+function fmtKRW(n){ if(!n && n!==0) return '—'; return new Intl.NumberFormat('ko-KR').format(n) + '원'; }
+function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
+
+// ==========================
+// CAMERA SETUP
+// ==========================
+async function listCameras(){
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const vids = devices.filter(d=>d.kind==='videoinput');
+  const sel = $('#cameraSelect');
+  sel.innerHTML = '';
+  vids.forEach((d,i)=>{
+    const o = document.createElement('option');
+    o.value = d.deviceId; o.textContent = d.label || `Camera ${i+1}`; sel.appendChild(o);
+  });
+  if(!state.deviceId && vids[0]) state.deviceId = vids[0].deviceId;
+  sel.value = state.deviceId || '';
+}
+
+async function startCamera(){
+  if(state.stream) stopCamera();
+  const constraints = { video: { facingMode: 'environment' } };
+  if(state.deviceId) constraints.video.deviceId = { exact: state.deviceId };
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    state.stream = stream; $('#video').srcObject = stream;
+  }catch(e){ alert('Camera error: '+ e.message); }
+}
+
+function stopCamera(){
+  if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; }
+  $('#video').srcObject = null;
+}
+
+$('#cameraSelect').addEventListener('change', e=>{ state.deviceId = e.target.value; startCamera(); });
+$('#startCam').addEventListener('click', startCamera);
+$('#stopCam').addEventListener('click', stopCamera);
+
+// ==========================
+// CAPTURE / UPLOAD / PREVIEW
+// ==========================
+$('#zoom').addEventListener('input', e=>{ state.zoom = parseFloat(e.target.value); renderPreview(); });
+
+function renderPreview(){
+  const video = $('#video'); const canvas = $('#canvas'); const img = $('#preview');
+  const src = state.lastImage || video;
+  if(!src || (!src.videoWidth && !img.naturalWidth)) return;
+  const w = (src.videoWidth||img.naturalWidth) * state.zoom;
+  const h = (src.videoHeight||img.naturalHeight) * state.zoom;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.filter = 'contrast(1.1) saturate(1.05)';
+  ctx.drawImage(src, 0, 0, w, h);
+}
+
+$('#capture').addEventListener('click', ()=>{
+  if(!state.stream && !state.lastImage){ alert('Start camera or upload an image first.'); return; }
+  renderPreview();
+  const dataURL = $('#canvas').toDataURL('image/png');
+  $('#preview').src = dataURL; $('#preview').hidden = false; state.lastImage = $('#preview');
+});
+
+$('#clear').addEventListener('click', ()=>{
+  state.lastImage = null; state.ocrText='';
+  $('#preview').hidden = true; $('#ocrOut').textContent=''; $('#translateOut').textContent=''; $('#qaOut').textContent='';
+  updateFacts({price:null, expiry:null, allergens:[], origin:null}); verdict();
+});
+
+$('#fileInput').addEventListener('change', ev=>{
+  const f = ev.target.files?.[0]; if(!f) return;
+  const url = URL.createObjectURL(f);
+  const img = $('#preview'); img.onload = ()=>{ URL.revokeObjectURL(url); state.lastImage = img; renderPreview(); };
+  img.src = url; img.hidden = false;
+});
+
+// ==========================
+// OCR
+// ==========================
+$('#runOCR').addEventListener('click', async ()=>{
+  const canvas = $('#canvas'); if(!state.lastImage){ alert('Capture or upload an image first.'); return; }
+  renderPreview();
+  $('#ocrOut').textContent='Running OCR…';
+  const lang = $('#lang').value;
+  const pbar = $('#pbar');
+  try{
+    const { data:{ text } } = await Tesseract.recognize(canvas, lang, { logger: m=>{ if(m.status==='recognizing text'){ pbar.style.width = Math.round(m.progress*100)+'%'; } } });
+    state.ocrText = (text||'').trim();
+    $('#ocrOut').textContent = state.ocrText || 'No text detected.';
+    analyzeFast();
+  }catch(e){
+    $('#ocrOut').textContent = 'OCR error: '+ e.message;
+  }finally{ pbar.style.width='0%'; }
+});
+
+$('#copyOCR').addEventListener('click', async ()=>{
+  const t = state.ocrText || ''; await navigator.clipboard.writeText(t); alert('OCR text copied.');
+});
+
+$('#downloadTxt').addEventListener('click', ()=>{
+  const blob = new Blob([state.ocrText||''], {type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ocr.txt'; a.click(); URL.revokeObjectURL(a.href);
+});
+
+// ==========================
+// SMART TRANSLATION & FACTS
+// ==========================
+const ALLERGEN_KEYWORDS = {
+  milk:[/\bmilk\b/i, /우유/, /유유/, /乳/],
+  soy:[/\bsoy\b/i, /대두/, /두유/],
+  nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],
+  peanut:[/\bpeanut/i,/땅콩/],
+  gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],
+  egg:[/\begg\b/i,/계란/,/난류/],
+  shellfish:[/shrimp/i,/crab/i,/lobster/i,/shellfish/i,/조개/,/새우/,/게/]
+};
+
+const ORIGIN_PATTERNS = [
+  {k:/한국|대한민국|국내산|made in korea|korea/i, v:'Korea'},
+  {k:/usa|미국|made in usa/i, v:'USA'},
+  {k:/japan|일본/i, v:'Japan'},
+  {k:/china|중국/i, v:'China'},
+  {k:/iran|이란/i, v:'Iran'}
+];
+
+function parsePrice(text){
+  // Match KRW like 12,345원, ₩12345, W 12,345
+  const m = text.match(/(?:₩|\bW\b|원)\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})/i) || text.match(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})\s*원/);
+  if(!m) return null; const n = parseInt(m[1].replace(/[^0-9]/g,''),10); return isFinite(n)?n:null;
+}
+
+function parseExpiry(text){
+  // Try patterns: YYYYMMDD, YYYY-MM-DD, YYYY.MM.DD, YY.MM.DD, "유통기한"
+  const clean = text.replace(/[\s]/g,'');
+  const pats = [
+    /(20\d{2})[.-]?([01]?\d)[.-]?([0-3]?\d)/,          // 2025-10-31 or 20251031
+    /유통기한[:：]?([20]\d{7,7})/,                        // 유통기한:20251031
+  ];
+  for(const r of pats){
+    const m = clean.match(r); if(m){
+      const y = parseInt(m[1],10); const mo = parseInt(m[2],10)-1; const d = parseInt(m[3],10);
+      const dt = new Date(y,mo,d);
+      if(!isNaN(dt)) return dt;
+    }
+  }
+  return null;
+}
+
+function detectAllergens(text){
+  const found = new Set();
+  for(const [k,arr] of Object.entries(ALLERGEN_KEYWORDS)){
+    if(arr.some(rx=>rx.test(text))) found.add(k);
+  }
+  return Array.from(found);
+}
+
+function detectOrigin(text){
+  for(const o of ORIGIN_PATTERNS){ if(o.k.test(text)) return o.v; }
+  return null;
+}
+
+function updateFacts({price, expiry, allergens, origin}){
+  $('#fPrice').textContent = price!=null? fmtKRW(price) : '—';
+  $('#fExpiry').textContent = expiry? expiry.toISOString().slice(0,10) : '—';
+  $('#fAllergen').textContent = allergens?.length? allergens.join(', ') : '—';
+  $('#fOrigin').textContent = origin || '—';
+}
+
+function analyzeFast(){
+  const text = state.ocrText || '';
+  const price = parsePrice(text);
+  const expiry = parseExpiry(text);
+  const allergens = detectAllergens(text);
+  const origin = detectOrigin(text);
+  updateFacts({price, expiry, allergens, origin});
+  verdict();
+}
+
+$('#smartTranslate').addEventListener('click', ()=>{
+  const t = (state.ocrText||''); if(!t){ $('#translateOut').textContent='No OCR text.'; return; }
+  const allergens = detectAllergens(t);
+  const summary = [];
+  if(allergens.length){ summary.push('Allergens detected: '+ allergens.join(', ')); }
+  else summary.push('No allergen keywords detected.');
+  const origin = detectOrigin(t); if(origin) summary.push('Origin: '+origin);
+  const price = parsePrice(t); if(price!=null) summary.push('Price: '+fmtKRW(price));
+  const expiry = parseExpiry(t); if(expiry){
+    const days = Math.ceil((expiry - new Date())/86400000);
+    summary.push('Expiry: '+ expiry.toISOString().slice(0,10) + ` (${days} day(s) left)`);
+  }
+  $('#translateOut').textContent = summary.join('\n');
+});
+
+// ==========================
+// VERDICT ENGINE
+// ==========================
+function verdict(){
+  const text = (state.ocrText||'').toLowerCase();
+  const userAllergens = $$('.allergen:checked').map(x=>x.value);
+  const price = parsePrice(text);
+  const expiry = parseExpiry(text);
+  const minDays = parseInt($('#minDays').value || '0',10);
+  const budget = parseInt($('#budget').value || '0',10);
+
+  let issues = [];
+  // 1) Allergens
+  const found = detectAllergens(text);
+  const conflict = found.filter(a=>userAllergens.includes(a));
+  if(conflict.length) issues.push(`Allergen conflict: ${conflict.join(', ')}`);
+
+  // 2) Expiry
+  if(expiry){
+    const days = Math.ceil((expiry - new Date())/86400000);
+    if(days < 0) issues.push('Expired');
+    else if(days < (isFinite(minDays)?minDays:0)) issues.push(`Only ${days} day(s) left (< ${minDays})`);
+  } else {
+    issues.push('No expiry date found');
+  }
+
+  // 3) Price
+  if(isFinite(budget) && budget>0){
+    if(price==null) issues.push('No price found');
+    else if(price > budget) issues.push(`Over budget: ${fmtKRW(price)} > ${fmtKRW(budget)}`);
+  }
+
+  // 4) Quality hints
+  if(/오염|변색|손상|damaged|leak|bulge|swollen/i.test(text)) issues.push('Quality issue keywords present');
+
+  // Verdict
+  const box = $('#verdict');
+  if(issues.length===0){ box.innerHTML = `<span class="pill ok">✅ Recommended</span> Looks good for your profile.`; }
+  else if(issues.some(s=>/Expired|Allergen|Over budget|Quality/.test(s))){
+    box.innerHTML = `<span class="pill no">⛔ Not Recommended</span>\n- ` + issues.join('\n- ');
+  } else {
+    box.innerHTML = `<span class="pill warn">⚠️ Caution</span>\n- ` + issues.join('\n- ');
+  }
+}
+
+$$('.allergen').forEach(cb=>cb.addEventListener('change', verdict));
+$('#budget').addEventListener('input', verdict);
+$('#minDays').addEventListener('input', verdict);
+
+// ==========================
+// RULE-BASED Q&A (On-device)
+// ==========================
+$('#ask').addEventListener('click', ()=>{
+  const q = ($('#q').value||'').toLowerCase();
+  const t = (state.ocrText||'').toLowerCase();
+  if(!t){ $('#qaOut').textContent = 'Please run OCR first.'; return; }
+  let ans = '';
+  if(/how much|price|cost|얼마|가격/.test(q)){
+    const p = parsePrice(t); ans = p!=null? `Detected price: ${fmtKRW(p)}` : 'Price not detected.';
+  } else if(/allergen|알레르기|milk|soy|nut|gluten|egg|peanut|shellfish/.test(q)){
+    const f = detectAllergens(t); ans = f.length? 'Allergens detected: '+f.join(', ') : 'No allergen keywords detected.';
+  } else if(/should i buy|recommend|사도될까|괜찮아\??/.test(q)){
+    const vtxt = $('#verdict').innerText; ans = 'Verdict: ' + vtxt;
+  } else if(/expiry|expiration|유통기한|소비기한|제조/.test(q)){
+    const d = parseExpiry(t); ans = d? `Expiry: ${d.toISOString().slice(0,10)}` : 'No expiry date found.';
+  } else {
+    ans = 'Try: "How much is it?", "Any allergens?", "Should I buy?", or "Expiry?"';
+  }
+  $('#qaOut').textContent = ans;
+});
+
+// ==========================
+// INIT
+// ==========================
+(async function init(){
+  if(navigator.mediaDevices?.getUserMedia){
+    await listCameras();
+  }
+})();
+</script>
+</body>
+</html>
