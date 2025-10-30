@@ -358,37 +358,89 @@ function preprocessCanvasFromDataURL(url){
 function norm(text){ return (text||'').replace(/\s+/g,' ').trim(); }
 
 /* ====== PARSERS ====== */
+/* --- smarter price parser --- */
 function parsePricesMulti(text){
-  const t=text.replace(/\s/g,'');
-  const hits=[];
-  const add=(cur,raw,num)=>{ if(!isFinite(num)) return; hits.push({cur,raw,amount:num}); };
+  const raw = text.replace(/\s/g,'');
+  const hits = [];
+  const add = (cur, rawStr, num, pos, ctx) => {
+    if(!isFinite(num)) return;
+    hits.push({cur, raw:rawStr, amount:num, pos, ctx});
+  };
 
-  // KRW
-  (t.match(/(?:₩|￦|W)?\s?([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})원?/gi)||[]).forEach(m=>{
-    const n=parseInt(m.replace(/[^\d]/g,''),10); add('KRW',m,n);
-  });
+  // collect KRW-like numbers
+  const krwRx = /([0-9]{1,3}(?:,[0-9]{3})*|[0-9]{3,7})\s?(?:원|W|₩|￦)?/gi;
+  let m;
+  while((m = krwRx.exec(raw)) !== null){
+    const num = parseInt(m[1].replace(/,/g,''),10);
+    const ctx = raw.slice(Math.max(0, m.index-6), m.index+10);
+    add('KRW', m[0], num, m.index, ctx);
+  }
+
   // USD
-  (t.match(/(?:USD|\$)\s?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/gi)||[]).forEach(m=>{
-    const n=parseFloat(m.replace(/[^0-9.]/g,'')); add('USD',m,n);
-  });
-  // EUR
-  (t.match(/(?:EUR|€)\s?([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{1,2})?)/gi)||[]).forEach(m=>{
-    const n=parseFloat(m.replace(/[€.]/g,'').replace(',','.')); add('EUR',m,n);
+  (raw.match(/(?:USD|\$)\s?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/gi)||[]).forEach(mm=>{
+    const num = parseFloat(mm.replace(/[^0-9.]/g,''));
+    add('USD', mm, num, raw.indexOf(mm), '');
   });
 
-  // choose best
-  const kw=hits.filter(h=>h.cur==='KRW' && h.amount>=100);
-  if(kw.length) return kw.sort((a,b)=>b.amount-a.amount)[0];
-  if(hits.length) return hits.sort((a,b)=>b.amount-a.amount)[0];
+  if(!hits.length) return null;
+
+  // 1) filter out implausible KRW (too big)
+  const plausible = hits.filter(h => h.cur==='KRW' ? (h.amount >= 100 && h.amount <= 200000) : true);
+  const pool = plausible.length ? plausible : hits;
+
+  // 2) price words near number
+  const tagged = pool.find(h => /가격|판매가|할인가|price|원가/i.test(h.ctx||''));
+  if(tagged) return tagged;
+
+  // 3) prefer supermarket range
+  const TARGETS = [1000, 2000, 3000, 5000, 10000, 15000, 20000, 30000, 50000];
+  const scored = pool.map(h => {
+    const dist = Math.min(...TARGETS.map(t => Math.abs(h.amount - t)));
+    return {...h, score:dist};
+  });
+  scored.sort((a,b)=>a.score - b.score || a.amount - b.amount);
+  return scored[0];
+}
+
+/* --- date helpers --- */
+function parseKoreanLikeDate(s){
+  // year 4-digit
+  let m = s.match(/(20\d{2})[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/);
+  if(m){
+    return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+  }
+  // year 2-digit, e.g. 25.12.31 -> 2025-12-31
+  m = s.match(/(2\d)[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/);
+  if(m){
+    const yr = 2000 + parseInt(m[1],10);
+    return new Date(yr, parseInt(m[2],10)-1, parseInt(m[3],10));
+  }
   return null;
 }
-function parseDateLoose(text){
-  const c=text.replace(/\s/g,'');
-  const m=c.match(/(20\d{2})[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/);
-  if(!m) return null;
-  const d=new Date(parseInt(m[1],10),parseInt(m[2],10)-1,parseInt(m[3],10));
-  return isNaN(d)?null:d;
+
+function extractExpiry(text){
+  const noSpace = text.replace(/\s/g,'');
+  const markers = [
+    /유통기한[:\-]?/i,
+    /소비기한[:\-]?/i,
+    /까지[:\-]?/i,
+    /EXP[:\-]?/i,
+    /BestBefore[:\-]?/i,
+    /Expiration[:\-]?/i,
+    /تاریخانقضا[:\-]?/i
+  ];
+  for(const mk of markers){
+    const idx = noSpace.search(mk);
+    if(idx !== -1){
+      const slice = noSpace.slice(idx, idx+22);
+      const d = parseKoreanLikeDate(slice);
+      if(d) return d;
+    }
+  }
+  // fallback: anywhere
+  return parseKoreanLikeDate(noSpace);
 }
+
 const ALLERGEN_RX={
   milk:[/\bmilk\b/i,/우유/,/乳/], soy:[/\bsoy\b/i,/대두/],
   nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],
@@ -434,8 +486,8 @@ $('#runAll').addEventListener('click',async ()=>{
     v.text = norm(pass.data.text||'');
 
     const price=parsePricesMulti(v.text);
-    const expiry=parseDateLoose(v.text);
-    const mfg=(/제조|생산|mfg|manufactured/i.test(v.text))?parseDateLoose(v.text):null;
+    const expiry=extractExpiry(v.text);
+    const mfg=(/제조|생산|mfg|manufactured/i.test(v.text))?extractExpiry(v.text):null;
     const allergens=detectAllergens(v.text);
     const origin=detectOrigin(v.text);
 
@@ -451,12 +503,13 @@ function mergeFacts(){
   state.views.forEach((v,idx)=>{
     merged.text += (v.text||'') + '\n';
     const pr=parsePricesMulti(v.text);
-    if(pr && (!merged.price || (pr.cur==='KRW' && (merged.price.cur!=='KRW' || pr.amount>merged.price.amount)))){
+    if(pr && (!merged.price || (pr.cur==='KRW' && (merged.price.cur!=='KRW' || pr.amount<merged.price.amount)))){
+      // اینجا عمداً کوچیک‌تر رو می‌گیریم برای لیبل
       merged.price=pr; merged.priceView=idx+1;
     }
-    const ex=parseDateLoose(v.text);
+    const ex=extractExpiry(v.text);
     if(ex && (!merged.expiry || ex>merged.expiry)) merged.expiry=ex;
-    const mf=(/제조|생산|mfg|manufactured/i.test(v.text))?parseDateLoose(v.text):null;
+    const mf=(/제조|생산|mfg|manufactured/i.test(v.text))?extractExpiry(v.text):null;
     if(mf && (!merged.mfg || mf>merged.mfg)) merged.mfg=mf;
     detectAllergens(v.text).forEach(a=>merged.allergens.add(a));
     const o=detectOrigin(v.text);
@@ -482,7 +535,7 @@ function verdict(){
     if(days<0) issues.push('Expired');
     else if(days<=1) issues.push('Expires soon');
   }else{
-    issues.push('No expiry date found');
+    issues.push('Expiry not detected from OCR image — try clearer/closer date shot.');
   }
   const box=$('#verdict');
   if(issues.length===0) box.innerHTML=`<span class="pill ok">✅ Recommended</span> Looks good for your profile.`;
