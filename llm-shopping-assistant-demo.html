@@ -18,7 +18,12 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans","Helvetica Neue",Arial}
+body{
+  margin:0;
+  background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);
+  color:var(--ink);
+  font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans","Helvetica Neue",Arial
+}
 .wrap{max-width:1160px;margin:0 auto;padding:18px}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
 .brand{display:flex;gap:12px;align-items:center}
@@ -29,18 +34,40 @@ h1{margin:0;font-size:clamp(18px,2.5vw,28px)}
 
 .grid{display:grid;grid-template-columns:1.08fr .92fr;gap:14px}
 @media(max-width:980px){.grid{grid-template-columns:1fr}}
-.card{background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.card{
+  background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+  box-shadow:0 10px 40px rgba(0,0,0,.25)
+}
 .card h2{margin:.2rem 0 8px;font-size:16px}
 .hr{border:0;border-top:1px solid var(--line);margin:12px 0}
 
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-button{border:0;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);color:#071021;font-weight:700;cursor:pointer;box-shadow:0 10px 28px rgba(100,214,255,.25)}
+button{
+  border:0;border-radius:12px;padding:10px 14px;
+  background:linear-gradient(135deg,#6ee7b7,#64d6ff);
+  color:#071021;font-weight:700;cursor:pointer;
+  box-shadow:0 10px 28px rgba(100,214,255,.25)
+}
 button.secondary{background:#121a36;color:var(--ink);box-shadow:none;border:1px solid var(--line)}
 button:active{transform:translateY(1px)}
-select,input,textarea{background:#0b1430;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+select,input,textarea{
+  background:#0b1430;color:var(--ink);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px 12px
+}
 textarea{width:100%;min-height:110px;white-space:pre-wrap}
 
-video,canvas,img{width:100%;max-height:360px;border-radius:14px;background:#0b1430;border:1px solid var(--line);object-fit:contain}
+video,canvas,img{
+  width:100%;max-height:360px;
+  border-radius:14px;
+  background:#0b1430;
+  border:1px solid var(--line);
+  object-fit:contain
+}
 .thumbs{display:flex;gap:10px;overflow:auto;padding:2px}
 .thumb{position:relative;flex:0 0 108px}
 .thumb img{width:108px;height:86px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#0b1430}
@@ -151,27 +178,32 @@ video,canvas,img{width:100%;max-height:360px;border-radius:14px;background:#0b14
 
 <script>
 /* ================== ENV/FLAGS ================== */
-const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-const hasWebGPU=!!navigator.gpu;
-const MOBILE_PREFERRED_RX={id:/camera2\s*0/i,back:/back|rear/i};
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const hasWebGPU = !!navigator.gpu;
+const MOBILE_PREFERRED_RX = { id:/camera2\\s*0/i, back:/back|rear/i };
 
 /* ====== STATE ====== */
-const $=s=>document.querySelector(s);
-const $$=s=>Array.from(document.querySelectorAll(s));
-const state={
-  stream:null,imageCapture:null,deviceId:null,
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const state = {
+  stream:null, imageCapture:null, deviceId:null,
   views:[], // {dataURL, text}
   merged:{text:'', price:null, priceView:null, expiry:null, mfg:null, allergens:new Set(), origin:null}
 };
 
-/* ====== CAMERA (auto-pick mobile back: camera2 0) ====== */
+/* ====== CAMERA (auto-pick mobile back: camera2 0, hi-res) ====== */
 async function listCameras(){
-  const devs=await navigator.mediaDevices.enumerateDevices();
-  const vids=devs.filter(d=>d.kind==='videoinput');
-  const sel=$('#cameraSelect'); sel.innerHTML='';
-  vids.forEach((d,i)=>{ const o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||`Camera ${i+1}`; sel.appendChild(o); });
-  if(!state.deviceId && vids[0]) state.deviceId=vids[0].deviceId;
-  sel.value=state.deviceId||'';
+  const devs = await navigator.mediaDevices.enumerateDevices();
+  const vids = devs.filter(d=>d.kind==='videoinput');
+  const sel = $('#cameraSelect'); sel.innerHTML='';
+  vids.forEach((d,i)=>{
+    const o = document.createElement('option');
+    o.value = d.deviceId;
+    o.textContent = d.label || `Camera ${i+1}`;
+    sel.appendChild(o);
+  });
+  if(!state.deviceId && vids[0]) state.deviceId = vids[0].deviceId;
+  sel.value = state.deviceId || '';
   if(isMobile) sel.style.display='none'; // hide selection on mobile
 }
 
@@ -179,7 +211,7 @@ async function pickMobileBackCameraId(){
   try{
     const devs=await navigator.mediaDevices.enumerateDevices();
     const vids=devs.filter(d=>d.kind==='videoinput');
-    let hit=vids.find(d=>MOBILE_PREFERRED_RX.id.test(d.label)&&MOBILE_PREFERRED_RX.back.test(d.label));
+    let hit=vids.find(d=>MOBILE_PREFERRED_RX.id.test(d.label) && MOBILE_PREFERRED_RX.back.test(d.label));
     if(hit) return hit.deviceId;
     hit=vids.find(d=>MOBILE_PREFERRED_RX.back.test(d.label));
     if(hit) return hit.deviceId;
@@ -191,23 +223,49 @@ async function startCamera(){
   try{
     if(state.stream) stopCamera();
 
+    // high-res constraints, prefer back, no prompt on mobile
     let constraints;
     if(isMobile){
       // warm-up to reveal labels
-      try{ const warm=await navigator.mediaDevices.getUserMedia({video:true}); warm.getTracks().forEach(t=>t.stop()); }catch{}
-      const mobileId=await pickMobileBackCameraId();
-      constraints = mobileId ? { video:{ deviceId:{ exact: mobileId } } } 
-                             : { video:{ facingMode:{ exact:'environment' } } };
-    }else{
-      constraints={ video:{ width:{ideal:1920}, height:{ideal:1080}, facingMode:{ideal:'environment'} } };
-      if(state.deviceId) constraints.video.deviceId={ exact: state.deviceId };
+      try{
+        const warm = await navigator.mediaDevices.getUserMedia({video:true});
+        warm.getTracks().forEach(t=>t.stop());
+      }catch{}
+      const mobileId = await pickMobileBackCameraId();
+      constraints = mobileId ? {
+        video:{
+          deviceId:{exact:mobileId},
+          width:{ideal:2560}, height:{ideal:1440},
+          advanced:[{focusMode:'continuous'},{exposureMode:'continuous'}]
+        }
+      } : {
+        video:{
+          facingMode:{exact:'environment'},
+          width:{ideal:2560}, height:{ideal:1440}
+        }
+      };
+    } else {
+      constraints = {
+        video:{
+          width:{ideal:2560}, height:{ideal:1440},
+          facingMode:{ideal:'environment'}
+        }
+      };
+      if(state.deviceId) constraints.video.deviceId = { exact: state.deviceId };
     }
 
-    const stream=await navigator.mediaDevices.getUserMedia(constraints);
-    state.stream=stream; $('#video').srcObject=stream;
-    const track=stream.getVideoTracks()[0];
-    state.imageCapture=('ImageCapture' in window)?new ImageCapture(track):null;
-  }catch(e){ alert('Camera error: '+e.message); }
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    state.stream = stream;
+    $('#video').srcObject = stream;
+    const track = stream.getVideoTracks()[0];
+    if('ImageCapture' in window){
+      state.imageCapture = new ImageCapture(track);
+    } else {
+      state.imageCapture = null;
+    }
+  }catch(e){
+    alert('Camera error: '+e.message);
+  }
 }
 function stopCamera(){
   if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; }
@@ -217,17 +275,25 @@ $('#cameraSelect').addEventListener('change',e=>{ state.deviceId=e.target.value;
 $('#startCam').addEventListener('click',startCamera);
 $('#stopCam').addEventListener('click',stopCamera);
 
-/* ====== CAPTURE / UPLOAD (keep color preview; preprocess only for OCR) ====== */
+/* ====== CAPTURE / UPLOAD (color) ====== */
 async function takeFrameAsDataURL(){
-  const canvas=$('#canvas'); const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const canvas = $('#canvas'); const ctx = canvas.getContext('2d',{willReadFrequently:true});
   if(state.imageCapture){
-    const blob=await state.imageCapture.takePhoto().catch(()=>null);
-    if(blob){ const bmp=await createImageBitmap(blob); canvas.width=bmp.width; canvas.height=bmp.height; ctx.drawImage(bmp,0,0); }
-  }else{
-    const v=$('#video'); if(!v.videoWidth) return null;
-    canvas.width=v.videoWidth; canvas.height=v.videoHeight; ctx.drawImage(v,0,0);
+    // hi-res still
+    const blob = await state.imageCapture.takePhoto().catch(()=>null);
+    if(blob){
+      const bmp = await createImageBitmap(blob);
+      canvas.width = bmp.width; canvas.height = bmp.height;
+      ctx.drawImage(bmp,0,0); // keep color
+      return canvas.toDataURL('image/png',1.0);
+    }
   }
-  return canvas.toDataURL('image/png');
+  // fallback to video
+  const v = $('#video');
+  if(!v.videoWidth) return null;
+  canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+  ctx.drawImage(v,0,0);
+  return canvas.toDataURL('image/png',1.0);
 }
 function addThumb(dataURL){
   state.views.push({dataURL, text:''});
@@ -235,36 +301,53 @@ function addThumb(dataURL){
   $('#fViews').textContent = state.views.length.toString();
 }
 function renderThumbs(){
-  const box=$('#thumbs'); box.innerHTML='';
+  const box = $('#thumbs'); box.innerHTML='';
   state.views.forEach((v,i)=>{
-    const t=document.createElement('div'); t.className='thumb';
-    t.innerHTML=`<img src="${v.dataURL}" alt="View ${i+1}"><button data-i="${i}">×</button><div class="note">View ${i+1}</div>`;
-    t.querySelector('button').onclick=()=>{ state.views.splice(i,1); renderThumbs(); mergeFacts(); $('#fViews').textContent=state.views.length; };
+    const t = document.createElement('div'); t.className='thumb';
+    t.innerHTML = `<img src="${v.dataURL}" alt="View ${i+1}"><button data-i="${i}">×</button><div class="note">View ${i+1}</div>`;
+    t.querySelector('button').onclick = ()=>{
+      state.views.splice(i,1); renderThumbs(); mergeFacts(); $('#fViews').textContent = state.views.length;
+    };
     box.appendChild(t);
   });
 }
 $('#addView').addEventListener('click',async ()=>{
   if(!state.stream && !$('#video').srcObject){ await startCamera(); }
-  const url=await takeFrameAsDataURL(); if(url) addThumb(url);
+  const url = await takeFrameAsDataURL(); if(url) addThumb(url);
 });
-$('#clearAll').addEventListener('click',()=>{ state.views.length=0; renderThumbs(); mergeFacts(); $('#ocrLog').textContent='—'; $('#qaOut').textContent='Type a question above.'; $('#fViews').textContent='0'; });
-
+$('#clearAll').addEventListener('click',()=>{
+  state.views.length = 0;
+  renderThumbs();
+  mergeFacts();
+  $('#ocrLog').textContent='—';
+  $('#qaOut').textContent='Type a question above.';
+  $('#fViews').textContent='0';
+});
 $('#fileInput').addEventListener('change',ev=>{
   const files=[...(ev.target.files||[])];
   files.slice(0,8).forEach(f=>{
     const url=URL.createObjectURL(f);
-    const img=new Image(); img.onload=()=>{ URL.revokeObjectURL(url); const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext('2d').drawImage(img,0,0); addThumb(c.toDataURL('image/png')); };
+    const img=new Image();
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const c=document.createElement('canvas');
+      c.width=img.naturalWidth; c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0);
+      addThumb(c.toDataURL('image/png'));
+    };
     img.src=url;
   });
 });
 
-/* ====== OCR HELPERS (preprocess & parsers) ====== */
+/* ====== OCR HELPERS (preprocess for OCR only) ====== */
 function preprocessCanvasFromDataURL(url){
   return new Promise(res=>{
-    const img=new Image(); img.onload=()=>{
-      const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');
+      c.width=img.naturalWidth; c.height=img.naturalHeight;
       const ctx=c.getContext('2d',{willReadFrequently:true});
-      // keep preview color; preprocessing only for OCR:
+      // ONLY here we do grayscale/contrast for OCR
       ctx.filter='grayscale(1) contrast(1.75) brightness(1.15)';
       ctx.drawImage(img,0,0);
       res(c);
@@ -274,54 +357,68 @@ function preprocessCanvasFromDataURL(url){
 }
 function norm(text){ return (text||'').replace(/\s+/g,' ').trim(); }
 
-/* Price: support ₩, 원, $, USD, €, EUR. Keep biggest sensible number; ignore tiny noise like 3 */
+/* ====== PARSERS ====== */
 function parsePricesMulti(text){
   const t=text.replace(/\s/g,'');
   const hits=[];
   const add=(cur,raw,num)=>{ if(!isFinite(num)) return; hits.push({cur,raw,amount:num}); };
 
-  // KRW: ₩12,345  or  12,345원  or W 12345
+  // KRW
   (t.match(/(?:₩|￦|W)?\s?([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})원?/gi)||[]).forEach(m=>{
     const n=parseInt(m.replace(/[^\d]/g,''),10); add('KRW',m,n);
   });
-  // USD: $12.34 or USD12.34
+  // USD
   (t.match(/(?:USD|\$)\s?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/gi)||[]).forEach(m=>{
     const n=parseFloat(m.replace(/[^0-9.]/g,'')); add('USD',m,n);
   });
-  // EUR: €12.34 or EUR12.34
+  // EUR
   (t.match(/(?:EUR|€)\s?([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{1,2})?)/gi)||[]).forEach(m=>{
     const n=parseFloat(m.replace(/[€.]/g,'').replace(',','.')); add('EUR',m,n);
   });
 
-  // choose best: prefer KRW highest (>=100), else USD/EUR highest
-  const kw=hits.filter(h=>h.cur==='KRW' && h.amount>=100); // avoid ₩3 glitches
+  // choose best
+  const kw=hits.filter(h=>h.cur==='KRW' && h.amount>=100);
   if(kw.length) return kw.sort((a,b)=>b.amount-a.amount)[0];
   if(hits.length) return hits.sort((a,b)=>b.amount-a.amount)[0];
   return null;
 }
 function parseDateLoose(text){
   const c=text.replace(/\s/g,'');
-  const pats=[
-    /(20\d{2})[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/,
-  ];
-  for(const r of pats){
-    const m=c.match(r); if(m){ const d=new Date(parseInt(m[1],10),parseInt(m[2],10)-1,parseInt(m[3],10)); if(!isNaN(d)) return d; }
-  }
-  return null;
+  const m=c.match(/(20\d{2})[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/);
+  if(!m) return null;
+  const d=new Date(parseInt(m[1],10),parseInt(m[2],10)-1,parseInt(m[3],10));
+  return isNaN(d)?null:d;
 }
 const ALLERGEN_RX={
   milk:[/\bmilk\b/i,/우유/,/乳/], soy:[/\bsoy\b/i,/대두/],
   nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],
-  peanut:[/\bpeanut/i,/땅콩/], gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],
+  peanut:[/\bpeanut\b/i,/땅콩/], gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],
   egg:[/\begg\b/i,/계란/,/난류/], shellfish:[/shellfish|shrimp|crab|lobster/i,/조개/,/새우/,/게/]
 };
-function detectAllergens(text){ const set=new Set(); for(const[k,arr] of Object.entries(ALLERGEN_RX)){ if(arr.some(rx=>rx.test(text))) set.add(k); } return set; }
+function detectAllergens(text){
+  const set=new Set();
+  for(const[k,arr] of Object.entries(ALLERGEN_RX)){ if(arr.some(rx=>rx.test(text))) set.add(k); }
+  return set;
+}
 function detectOrigin(text){
-  const arr=[{k:/한국|대한민국|국내산|madeinkorea|korea/i,v:'Korea'},{k:/usa|미국|madeinusa/i,v:'USA'},{k:/japan|일본/i,v:'Japan'},{k:/iran|이란/i,v:'Iran'},{k:/china|중국/i,v:'China'}];
-  for(const o of arr){ if(o.k.test(text)) return o.v; } return null;
+  const arr=[
+    {k:/한국|대한민국|국내산|madeinkorea|korea/i,v:'Korea'},
+    {k:/usa|미국|madeinusa/i,v:'USA'},
+    {k:/japan|일본/i,v:'Japan'},
+    {k:/iran|이란/i,v:'Iran'},
+    {k:/china|중국/i,v:'China'}
+  ];
+  for(const o of arr){ if(o.k.test(text)) return o.v; }
+  return null;
 }
 function fmtKRW(n){return new Intl.NumberFormat('ko-KR').format(n)+'원'}
-function fmtPriceObj(p){ if(!p) return '—'; if(p.cur==='KRW') return fmtKRW(p.amount); if(p.cur==='USD') return '$'+p.amount; if(p.cur==='EUR') return '€'+p.amount; return p.amount+' '+p.cur; }
+function fmtPriceObj(p){
+  if(!p) return '—';
+  if(p.cur==='KRW') return fmtKRW(p.amount);
+  if(p.cur==='USD') return '$'+p.amount;
+  if(p.cur==='EUR') return '€'+p.amount;
+  return p.amount+' '+p.cur;
+}
 
 /* ====== OCR RUN (all views) ====== */
 $('#runAll').addEventListener('click',async ()=>{
@@ -329,12 +426,13 @@ $('#runAll').addEventListener('click',async ()=>{
   $('#ocrLog').textContent='Running OCR…';
   const lang=$('#lang').value || 'eng+kor';
 
-  let log=[];
+  const log=[];
   for(let i=0;i<state.views.length;i++){
     const v=state.views[i];
     const c=await preprocessCanvasFromDataURL(v.dataURL);
     const pass=await Tesseract.recognize(c,lang);
     v.text = norm(pass.data.text||'');
+
     const price=parsePricesMulti(v.text);
     const expiry=parseDateLoose(v.text);
     const mfg=(/제조|생산|mfg|manufactured/i.test(v.text))?parseDateLoose(v.text):null;
@@ -351,18 +449,24 @@ $('#runAll').addEventListener('click',async ()=>{
 function mergeFacts(){
   const merged={text:'', price:null, priceView:null, expiry:null, mfg:null, allergens:new Set(), origin:null};
   state.views.forEach((v,idx)=>{
-    merged.text += (v.text||'')+'\n';
-    const pr=parsePricesMulti(v.text); if(pr && (!merged.price || (pr.cur==='KRW' && (merged.price.cur!=='KRW' || pr.amount>merged.price.amount)))){ merged.price=pr; merged.priceView=idx+1; }
-    const ex=parseDateLoose(v.text); if(ex && (!merged.expiry || ex>merged.expiry)) merged.expiry=ex;
-    const mf=(/제조|생산|mfg|manufactured/i.test(v.text))?parseDateLoose(v.text):null; if(mf && (!merged.mfg || mf>merged.mfg)) merged.mfg=mf;
+    merged.text += (v.text||'') + '\n';
+    const pr=parsePricesMulti(v.text);
+    if(pr && (!merged.price || (pr.cur==='KRW' && (merged.price.cur!=='KRW' || pr.amount>merged.price.amount)))){
+      merged.price=pr; merged.priceView=idx+1;
+    }
+    const ex=parseDateLoose(v.text);
+    if(ex && (!merged.expiry || ex>merged.expiry)) merged.expiry=ex;
+    const mf=(/제조|생산|mfg|manufactured/i.test(v.text))?parseDateLoose(v.text):null;
+    if(mf && (!merged.mfg || mf>merged.mfg)) merged.mfg=mf;
     detectAllergens(v.text).forEach(a=>merged.allergens.add(a));
-    const o=detectOrigin(v.text); if(o && !merged.origin) merged.origin=o;
+    const o=detectOrigin(v.text);
+    if(o && !merged.origin) merged.origin=o;
   });
   state.merged=merged;
-  $('#fPrice').textContent = merged.price? `${fmtPriceObj(merged.price)} ${merged.priceView?`(v${merged.priceView})`:''}` : '—';
-  $('#fExpiry').textContent = merged.expiry? merged.expiry.toISOString().slice(0,10) : '—';
-  $('#fMfg').textContent = merged.mfg? merged.mfg.toISOString().slice(0,10) : '—';
-  $('#fAllergen').textContent = merged.allergens.size? [...merged.allergens].join(', ') : '—';
+  $('#fPrice').textContent = merged.price ? `${fmtPriceObj(merged.price)} ${merged.priceView?`(v${merged.priceView})`:''}` : '—';
+  $('#fExpiry').textContent = merged.expiry ? merged.expiry.toISOString().slice(0,10) : '—';
+  $('#fMfg').textContent = merged.mfg ? merged.mfg.toISOString().slice(0,10) : '—';
+  $('#fAllergen').textContent = merged.allergens.size ? [...merged.allergens].join(', ') : '—';
   $('#fOrigin').textContent = merged.origin || '—';
   verdict();
 }
@@ -375,7 +479,8 @@ function verdict(){
   if(conflict) issues.push('Allergen conflict');
   if(m.expiry){
     const days=Math.ceil((m.expiry - new Date())/86400000);
-    if(days<0) issues.push('Expired'); else if(days<=1) issues.push('Expires soon');
+    if(days<0) issues.push('Expired');
+    else if(days<=1) issues.push('Expires soon');
   }else{
     issues.push('No expiry date found');
   }
@@ -386,9 +491,9 @@ function verdict(){
 }
 $$('.allergen').forEach(cb=>cb.addEventListener('change',verdict));
 
-/* ====== ASK (AI beta with robust fallback) ====== */
+/* ====== ASK (AI beta) ====== */
 let chat=null, ready=false;
-const modelName='TinyLlama-1.1B-chat-v1.0-q4f16_1-MLC'; // tiny, loads quicker
+const modelName='TinyLlama-1.1B-chat-v1.0-q4f16_1-MLC'; // only this
 
 async function ensureModel(){
   if(ready || !hasWebGPU) return;
@@ -404,7 +509,7 @@ async function ensureModel(){
 
 function detectLang(s){
   if(/[가-힣]/.test(s)) return 'KR';
-  if(/[اأإآدذرزوژءيىۀۀگچپکملتنسفغهصضطظقحشثخجڅऋ]/.test(s)) return 'FA'; // very rough
+  if(/[\u0600-\u06FF]/.test(s)) return 'FA';
   return 'EN';
 }
 function intent(q){
@@ -424,7 +529,10 @@ function fallbackAnswer(q){
   if(I==='price') return m.price? say(`Price ${fmtPriceObj(m.price)}.`,`가격 ${fmtPriceObj(m.price)}.`,`قیمت ${fmtPriceObj(m.price)}.`) : say('Price not detected.','가격 정보를 찾지 못했습니다.','قیمت پیدا نشد.');
   if(I==='expiry') return m.expiry? say(`Expiry ${m.expiry.toISOString().slice(0,10)}.`,`유통기한 ${m.expiry.toISOString().slice(0,10)}.`,`تاریخ انقضا ${m.expiry.toISOString().slice(0,10)}.`) : say('No expiry date found.','유통기한 정보를 찾지 못했습니다.','تاریخ انقضا پیدا نشد.');
   if(I==='mfg') return m.mfg? say(`Manufactured on ${m.mfg.toISOString().slice(0,10)}.`,`제조일 ${m.mfg.toISOString().slice(0,10)}.`,`تاریخ تولید ${m.mfg.toISOString().slice(0,10)}.`):say('No manufacturing date found.','제조일 정보를 찾지 못했습니다.','تاریخ تولید پیدا نشد.');
-  if(I==='allergens'){ const a=m.allergens.size?[...m.allergens].join(', '):null; return a? say(`Allergens: ${a}.`,`알레르겐: ${a}.`,`آلرژن‌ها: ${a}.`): say('No allergen keywords detected.','알레르겐 키워드 없음.','آلرژنی یافت نشد.'); }
+  if(I==='allergens'){
+    const a=m.allergens.size?[...m.allergens].join(', '):null;
+    return a? say(`Allergens: ${a}.`,`알레르겐: ${a}.`,`آلرژن‌ها: ${a}.`): say('No allergen keywords detected.','알레르겐 키워드 없음.','آلرژنی یافت نشد.');
+  }
   if(I==='origin') return m.origin? say(`Origin: ${m.origin}.`,`원산지: ${m.origin}.`,`مبدأ: ${m.origin}.`) : say('Origin not found.','원산지 정보를 찾지 못했습니다.','کشور مبدأ پیدا نشد.');
   if(I==='recommend'){
     const expired=m.expiry? (m.expiry - new Date())<0 : null;
@@ -432,7 +540,6 @@ function fallbackAnswer(q){
     if(expired||conflict) return say('⛔ Not recommended.','⛔ 비추천.','⛔ توصیه نمی‌شود.');
     return say('✅ Recommended.','✅ 추천.','✅ توصیه می‌شود.');
   }
-  // general: if nothing clear, show most relevant known
   if(m.price) return fallbackAnswer('price');
   if(m.expiry) return fallbackAnswer('expiry');
   return say('No specific info available.','관련 정보를 찾지 못했습니다.','پاسخ مشخصی پیدا نشد.');
@@ -443,7 +550,6 @@ $('#ask').addEventListener('click', async ()=>{
   if(!q){ $('#qaOut').textContent = 'اول یک سؤال بنویسید.'; return; }
   if(!state.merged.text){ $('#qaOut').textContent='First run OCR (All Views).'; return; }
 
-  // Try local model if available; else fallback
   try{
     if(hasWebGPU) await ensureModel();
     if(!ready){ $('#qaOut').textContent = fallbackAnswer(q); return; }
@@ -464,24 +570,32 @@ $('#ask').addEventListener('click', async ()=>{
     const txt=r?.choices?.[0]?.message?.content?.trim();
     $('#qaOut').textContent = txt || fallbackAnswer(q);
   }catch(e){
-    console.error(e); $('#qaOut').textContent = fallbackAnswer(q);
+    console.error(e);
+    $('#qaOut').textContent = fallbackAnswer(q);
   }
 });
 
 /* ====== UTIL BUTTONS ====== */
 $('#copyAll').addEventListener('click',async ()=>{
   const all=state.views.map((v,i)=>`[View ${i+1}]\n${v.text||''}`).join('\n\n')||'';
-  await navigator.clipboard.writeText(all); alert('OCR text copied.');
+  await navigator.clipboard.writeText(all);
+  alert('OCR text copied.');
 });
 $('#dlTxt').addEventListener('click',()=>{
   const all=state.views.map((v,i)=>`[View ${i+1}]\n${v.text||''}`).join('\n\n')||'';
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([all],{type:'text/plain'})); a.download='ocr_all.txt'; a.click(); URL.revokeObjectURL(a.href);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([all],{type:'text/plain'}));
+  a.download='ocr_all.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
 });
 
 /* ====== INIT ====== */
 (async function init(){
-  if(navigator.mediaDevices?.getUserMedia){ await listCameras(); }
-  if(isMobile){ // auto-start on mobile to back camera
+  if(navigator.mediaDevices?.getUserMedia){
+    await listCameras();
+  }
+  if(isMobile){
     startCamera();
   }
 })();
