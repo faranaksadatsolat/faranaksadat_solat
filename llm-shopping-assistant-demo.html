@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>LLM Shopping Assistant — SIIF 2025 (Multi-View • Free Beta)</title>
 
-<!-- Tesseract.js (OCR, on-device) -->
+<!-- Tesseract.js (OCR) -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 
-<!-- WebLLM (free, local, optional) -->
+<!-- WebLLM (optional, local, free) -->
 <script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.48/dist/web-llm.min.js"></script>
 
 <style>
@@ -95,7 +95,7 @@ video,canvas,img{
         <div class="sub">Inventor: <b>Faranaksadat Solat</b> • Patent No. <span class="mono">10-2865941</span></div>
       </div>
     </div>
-    <div class="badge">🔒 On-device OCR • EN/KR • Local LLM post-fix</div>
+    <div class="badge">🔒 On-device OCR • EN/KR • No guess-price</div>
   </header>
 
   <div class="grid">
@@ -123,6 +123,7 @@ video,canvas,img{
 
       <h2>2) OCR all views & smart merge</h2>
       <div class="row">
+        <!-- user said: Korean + English is enough -->
         <select id="lang">
           <option value="eng+kor" selected>English + Korean</option>
         </select>
@@ -235,6 +236,7 @@ async function startCamera(){
       constraints = { video:{width:{ideal:2560}, height:{ideal:1440}, facingMode:{ideal:'environment'}} };
       if(state.deviceId) constraints.video.deviceId = { exact:state.deviceId };
     }
+
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     state.stream = stream;
     $('#video').srcObject = stream;
@@ -265,14 +267,14 @@ async function takeFrameAsDataURL(){
     const blob = await state.imageCapture.takePhoto().catch(()=>null);
     if(blob){
       const bmp = await createImageBitmap(blob);
-      canvas.width=bmp.width; canvas.height=bmp.height;
+      canvas.width = bmp.width; canvas.height = bmp.height;
       ctx.drawImage(bmp,0,0);
       return canvas.toDataURL('image/png',1.0);
     }
   }
   const v = $('#video');
   if(!v.videoWidth) return null;
-  canvas.width=v.videoWidth; canvas.height=v.videoHeight;
+  canvas.width = v.videoWidth; canvas.height = v.videoHeight;
   ctx.drawImage(v,0,0);
   return canvas.toDataURL('image/png',1.0);
 }
@@ -286,7 +288,7 @@ function renderThumbs(){
   state.views.forEach((v,i)=>{
     const t=document.createElement('div'); t.className='thumb';
     t.innerHTML = `<img src="${v.dataURL}" alt="View ${i+1}"><button data-i="${i}">×</button><div class="note">View ${i+1}</div>`;
-    t.querySelector('button').onclick=()=>{
+    t.querySelector('button').onclick = ()=>{
       state.views.splice(i,1);
       renderThumbs();
       mergeFacts();
@@ -331,7 +333,6 @@ function preprocessCanvasFromDataURL(url){
       const c=document.createElement('canvas');
       c.width=img.naturalWidth; c.height=img.naturalHeight;
       const ctx=c.getContext('2d',{willReadFrequently:true});
-      // preprocess only for OCR, not for display
       ctx.filter='grayscale(1) contrast(1.75) brightness(1.15)';
       ctx.drawImage(img,0,0);
       res(c);
@@ -342,7 +343,8 @@ function preprocessCanvasFromDataURL(url){
 function norm(text){ return (text||'').replace(/\s+/g,' ').trim(); }
 
 /* ===== PARSERS ===== */
-// conservative price parser
+
+/* price: very conservative — better blank than wrong */
 function parsePricesMulti(text){
   const raw = text.replace(/\s/g,'');
   const hits = [];
@@ -350,6 +352,8 @@ function parsePricesMulti(text){
     if(!isFinite(num)) return;
     hits.push({cur, raw:rawStr, amount:num, pos, ctx});
   };
+
+  // KRW-like
   const krwRx = /([0-9]{1,3}(?:,[0-9]{3})*|[0-9]{2,7})\s?(?:원|W|₩|￦)?/gi;
   let m;
   while((m = krwRx.exec(raw)) !== null){
@@ -357,25 +361,35 @@ function parsePricesMulti(text){
     const ctx = raw.slice(Math.max(0, m.index-6), m.index+10);
     add('KRW', m[0], num, m.index, ctx);
   }
+
   if(!hits.length) return null;
-  // keep only realistic (500~50000)
+
+  // keep only realistic supermarket prices
   let pool = hits.filter(h => h.amount >= 500 && h.amount <= 50000);
+
+  // if nothing realistic, just return null → UI shows "—"
   if(!pool.length) return null;
+
+  // prefer marked
   const tagged = pool.find(h => /가격|판매가|할인가|price|원가/i.test(h.ctx||''));
   if(tagged) return tagged;
+
+  // otherwise pick smallest plausible
   pool.sort((a,b)=>a.amount - b.amount);
   return pool[0];
 }
 
-// collect all dates
+/* date helpers */
 function parseKoreanLikeDateAll(s){
   const out = [];
+  // 4-digit year
   const r1 = /(20\d{2})[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/g;
   let m;
   while((m = r1.exec(s)) !== null){
     const d=new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
     if(!isNaN(d)) out.push({date:d, idx:m.index});
   }
+  // 2-digit year (25.12.31)
   const r2 = /(2\d)[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/g;
   while((m = r2.exec(s)) !== null){
     const yr = 2000 + parseInt(m[1],10);
@@ -388,6 +402,7 @@ function extractExpiry(text){
   const noSpace = text.replace(/\s/g,'');
   const all = parseKoreanLikeDateAll(noSpace);
   if(!all.length) return null;
+
   const markers = [
     /유통기한/i, /소비기한/i, /까지/i,
     /EXP/i, /UseBy/i, /BestBefore/i, /Expiration/i
@@ -399,6 +414,8 @@ function extractExpiry(text){
       markerPos.push(m.index);
     }
   });
+
+  // marker → pick closest date after it
   if(markerPos.length){
     for(const mp of markerPos){
       const cand = all
@@ -407,6 +424,8 @@ function extractExpiry(text){
       if(cand) return cand.date;
     }
   }
+
+  // otherwise pick latest reasonable
   const reasonable = all.filter(d => d.date.getFullYear() <= 2035);
   if(reasonable.length){
     reasonable.sort((a,b)=>b.date - a.date);
@@ -439,49 +458,11 @@ function detectOrigin(text){
 }
 function fmtKRW(n){return new Intl.NumberFormat('ko-KR').format(n)+'원'}
 
-/* ===== LLM (local, optional) ===== */
-let llmReady = false;
-let llmEngine = null;
-const llmModel = 'TinyLlama-1.1B-chat-v1.0-q4f16_1-MLC';
-
-async function ensureLLM(){
-  if(llmReady) return;
-  if(!window.mlc?.ai) return;
-  llmEngine = await window.mlc.ai.createMLCEngine({
-    model: llmModel,
-    progressCallback: (p)=>{
-      // you can show loading here if you want
-      // console.log('LLM loading', p.progress);
-    }
-  });
-  llmReady = true;
-}
-
-async function refineWithLLM(allOcrText){
-  await ensureLLM();
-  if(!llmReady) return null;
-  const sys = 'You are a strict label parser for Korean and English grocery products. '
-    + 'Return ONLY JSON. Fields: "price_krw" (number or "UNREADABLE"), '
-    + '"expiry" (YYYY-MM-DD or "UNREADABLE"). '
-    + 'If anything is unclear or looks like a serial number, return "UNREADABLE". '
-    + 'Do NOT invent numbers.';
-  const user = 'OCR_TEXT:\n' + allOcrText + '\n---\nExtract price in KRW and expiry date.';
-  const out = await llmEngine.chat.completions.create({
-    messages:[
-      {role:'system', content:sys},
-      {role:'user', content:user}
-    ],
-    temperature:0
-  });
-  const txt = out?.choices?.[0]?.message?.content?.trim();
-  return txt || null;
-}
-
 /* ===== OCR RUN ===== */
 $('#runAll').addEventListener('click', async ()=>{
   if(!state.views.length){ alert('Add at least one view first.'); return; }
   $('#ocrLog').textContent='Running OCR…';
-  const lang = $('#lang').value || 'eng+kor';
+  const lang=$('#lang').value || 'eng+kor';
   const log=[];
 
   for(let i=0;i<state.views.length;i++){
@@ -500,7 +481,7 @@ $('#runAll').addEventListener('click', async ()=>{
   }
 
   $('#ocrLog').textContent = log.join('\n');
-  mergeFacts(); // after this, LLM will also try to refine
+  mergeFacts();
 });
 
 /* ===== MERGE & VERDICT ===== */
@@ -525,12 +506,13 @@ function mergeFacts(){
     if(mf && (!merged.mfg || mf>merged.mfg)) merged.mfg = mf;
 
     detectAllergens(v.text).forEach(a=>merged.allergens.add(a));
-    const o = detectOrigin(v.text);
-    if(o && !merged.origin) merged.origin = o;
+    const o=detectOrigin(v.text);
+    if(o && !merged.origin) merged.origin=o;
   });
 
   state.merged = merged;
 
+  // show in UI
   $('#fPrice').textContent = merged.price ? `${fmtKRW(merged.price.amount)} ${merged.priceView?`(v${merged.priceView})`:''}` : 'unreadable';
   $('#fExpiry').textContent = merged.expiry ? merged.expiry.toISOString().slice(0,10) : 'unreadable';
   $('#fMfg').textContent = merged.mfg ? merged.mfg.toISOString().slice(0,10) : '—';
@@ -538,34 +520,6 @@ function mergeFacts(){
   $('#fOrigin').textContent = merged.origin || '—';
 
   verdict();
-
-  // 🔁 Try to let local LLM improve the fields (but no invented numbers)
-  (async ()=>{
-    const refinedText = await refineWithLLM(state.merged.text);
-    if(!refinedText) return;
-    try{
-      const obj = JSON.parse(refinedText);
-      // price
-      if(obj.price_krw && obj.price_krw !== 'UNREADABLE'){
-        const num = Number(obj.price_krw);
-        if(isFinite(num) && num >= 500 && num <= 50000){
-          state.merged.price = {cur:'KRW', amount:num};
-          $('#fPrice').textContent = fmtKRW(num) + ' (LLM)';
-        }
-      }
-      // expiry
-      if(obj.expiry && obj.expiry !== 'UNREADABLE'){
-        const d = new Date(obj.expiry);
-        if(!isNaN(d)){
-          state.merged.expiry = d;
-          $('#fExpiry').textContent = d.toISOString().slice(0,10) + ' (LLM)';
-          verdict(); // re-check
-        }
-      }
-    }catch(e){
-      console.warn('LLM JSON error', e);
-    }
-  })();
 }
 
 function verdict(){
@@ -573,6 +527,7 @@ function verdict(){
   const issues=[];
   const userAll = $$('.allergen:checked').map(x=>x.value);
   const conflict = [...m.allergens].some(a=>userAll.includes(a));
+
   if(conflict) issues.push('Allergen conflict');
   if(m.expiry){
     const days = Math.ceil((m.expiry - new Date())/86400000);
@@ -581,18 +536,20 @@ function verdict(){
   } else {
     issues.push('Expiry not detected — take closer photo of 유통기한.');
   }
+
   const box = $('#verdict');
   if(issues.length===0){
     box.innerHTML = `<span class="pill ok">✅ Recommended</span> Looks good for your profile.`;
   } else if(issues.some(s=>/Expired|Allergen/.test(s))){
-    box.innerHTML = `<span class="pill no">⛔ Not Recommended</span>\n- ` + issues.join('\n- ');
+    box.innerHTML = `<span class="pill no">⛔ Not Recommended</span>\n- `+issues.join('\n- ');
   } else {
-    box.innerHTML = `<span class="pill warn">⚠️ Caution</span>\n- ` + issues.join('\n- ');
+    box.innerHTML = `<span class="pill warn">⚠️ Caution</span>\n- `+issues.join('\n- ');
   }
 }
 $$('.allergen').forEach(cb=>cb.addEventListener('change',verdict));
 
-/* ===== ASK (local-only answer) ===== */
+/* ===== ASK (LOCAL, FREE) ===== */
+// still local, but we loaded web-llm in <head> in case later you want to enable it
 function detectLang(s){
   if(/[가-힣]/.test(s)) return 'KR';
   return 'EN';
