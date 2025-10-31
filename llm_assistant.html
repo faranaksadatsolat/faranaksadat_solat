@@ -5,36 +5,59 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Smart Menu Vision — Auto Translate & Allergy Detection</title>
 
-<!-- Tesseract.js -->
+<!-- Tesseract.js for OCR -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 
 <style>
 :root{
-  --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;--accent:#6ee7b7;
-  --accent2:#64d6ff;--line:rgba(255,255,255,.08);
+  --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;
+  --accent:#6ee7b7;--accent2:#64d6ff;--line:rgba(255,255,255,.08);
 }
 *{box-sizing:border-box}
-body{margin:0;padding:16px;font-family:system-ui,ui-sans-serif,Roboto;background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);color:var(--ink)}
-h1{text-align:center;font-size:22px;margin-bottom:4px}
+body{
+  margin:0;padding:16px;
+  font-family:system-ui,ui-sans-serif,Roboto;
+  background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);
+  color:var(--ink)
+}
+h1{text-align:center;font-size:22px;margin:0}
 .sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:16px}
-.app{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1.05fr .95fr;gap:14px}
+.app{
+  max-width:1100px;margin:0 auto;
+  display:grid;grid-template-columns:1.05fr .95fr;gap:14px
+}
 @media(max-width:900px){.app{grid-template-columns:1fr}}
-.card{background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);border:1px solid var(--line);border-radius:16px;padding:14px}
+.card{
+  background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);
+  border:1px solid var(--line);border-radius:16px;padding:14px
+}
+h2{margin:4px 0 10px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-button{border:0;border-radius:12px;padding:9px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);color:#071021;font-weight:700;cursor:pointer}
+button{
+  border:0;border-radius:12px;padding:9px 14px;
+  background:linear-gradient(135deg,#6ee7b7,#64d6ff);
+  color:#071021;font-weight:700;cursor:pointer
+}
 button.secondary{background:#121a36;color:var(--ink);border:1px solid var(--line)}
 .viewer{position:relative;background:#0b1430;border:1px solid var(--line);border-radius:14px;min-height:280px;margin-top:10px}
 #canvasBase,#canvasOverlay{width:100%;border-radius:14px;display:block}
 #video{width:120px;height:70px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#000}
 @media(max-width:600px){#video{width:100%;height:auto}}
-.out{background:#0b1430;border:1px solid var(--line);border-radius:12px;padding:10px;min-height:56px;white-space:pre-wrap}
-.pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px}
+.out{
+  background:#0b1430;border:1px solid var(--line);
+  border-radius:12px;padding:10px;min-height:56px;white-space:pre-wrap
+}
+.pill{
+  display:inline-flex;gap:6px;align-items:center;
+  padding:6px 10px;border-radius:999px;
+  border:1px solid var(--line);font-size:12px
+}
 .footer{text-align:center;color:var(--muted);font-size:11px;margin-top:10px}
 </style>
 </head>
 <body>
 <h1>Smart Menu Vision — Auto Translate & Allergy Detection</h1>
-<div class="sub">OCR → Translate (KO→EN) → English overlay → Allergy check</div>
+<div class="sub">Camera / upload → OCR (KR+EN) → translate to EN → overlay → allergy check</div>
 
 <div class="app">
   <!-- LEFT -->
@@ -67,7 +90,7 @@ button.secondary{background:#121a36;color:var(--ink);border:1px solid var(--line
 
   <!-- RIGHT -->
   <aside class="card">
-    <h2>3) Allergy Profile</h2>
+    <h2>3) Buyer allergy profile</h2>
     <div class="row">
       <label class="pill"><input type="checkbox" class="allergen" value="milk"> Milk / 우유</label>
       <label class="pill"><input type="checkbox" class="allergen" value="soy"> Soy / 대두</label>
@@ -89,37 +112,44 @@ button.secondary{background:#121a36;color:var(--ink);border:1px solid var(--line
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 
-const state = { stream: null, lastText: '', translated: '', allergens: new Set() };
+const state = {
+  stream: null,
+  lastText: '',
+  translated: '',
+  allergens: new Set()
+};
 
-/* === CAMERA === */
+/* ---------- CAMERA ---------- */
 async function startCamera(){
-  const v = $('#video');
   const status = $('#camStatus');
-  try {
+  try{
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      video: { facingMode: 'environment', width:{ideal:1280}, height:{ideal:720} },
       audio: false
     });
-    v.srcObject = stream;
+    $('#video').srcObject = stream;
     state.stream = stream;
-    status.textContent = 'Camera started.';
-  } catch(e){
-    status.textContent = 'Camera blocked or unavailable: ' + e.message;
+    status.textContent = 'Camera started (env).';
+  }catch(e){
+    status.textContent = 'Camera blocked/unavailable: ' + e.message;
   }
 }
 function stopCamera(){
-  if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; }
+  if(state.stream){
+    state.stream.getTracks().forEach(t=>t.stop());
+    state.stream = null;
+  }
   $('#video').srcObject = null;
   $('#camStatus').textContent = 'Camera stopped.';
 }
 $('#startCam').onclick = startCamera;
 $('#stopCam').onclick = stopCamera;
 
-/* === CAPTURE === */
+/* ---------- CAPTURE FROM VIDEO ---------- */
 $('#captureBtn').onclick = ()=>{
   const v = $('#video');
   if(!v.srcObject || !v.videoWidth){
-    $('#ocrLog').textContent = 'No camera frame.';
+    $('#ocrLog').textContent='No camera frame.';
     return;
   }
   const c = $('#canvasBase');
@@ -127,120 +157,168 @@ $('#captureBtn').onclick = ()=>{
   c.width = v.videoWidth;
   c.height = v.videoHeight;
   ctx.drawImage(v,0,0);
-  analyzeImage();
+  runFullPipeline();
 };
 
-/* === UPLOAD === */
+/* ---------- UPLOAD ---------- */
 $('#fileInput').onchange = e=>{
   const f = e.target.files[0];
   if(!f) return;
-  const u = URL.createObjectURL(f);
+  const url = URL.createObjectURL(f);
   const img = new Image();
   img.onload = ()=>{
     const c = $('#canvasBase');
     const ctx = c.getContext('2d');
     c.width = img.naturalWidth; c.height = img.naturalHeight;
     ctx.drawImage(img,0,0);
-    analyzeImage();
-    URL.revokeObjectURL(u);
+    runFullPipeline();
+    URL.revokeObjectURL(url);
   };
-  img.src = u;
+  img.src = url;
 };
 
-/* === CLEAR === */
+/* ---------- CLEAR ---------- */
 $('#clearBtn').onclick = ()=>{
-  const c = $('#canvasBase'); c.getContext('2d').clearRect(0,0,c.width,c.height);
-  const o = $('#canvasOverlay'); o.getContext('2d').clearRect(0,0,o.width,o.height);
+  const b = $('#canvasBase');
+  const o = $('#canvasOverlay');
+  b.getContext('2d').clearRect(0,0,b.width,b.height);
+  o.getContext('2d').clearRect(0,0,o.width,o.height);
   $('#ocrLog').textContent = 'No image.';
   $('#verdict').textContent = 'No scan.';
 };
 
-/* === OCR + TRANSLATE === */
-async function analyzeImage(){
+/* ---------- PIPELINE ---------- */
+async function runFullPipeline(){
+  const base = $('#canvasBase');
+  if(!base.width){
+    $('#ocrLog').textContent = 'No image in canvas.';
+    return;
+  }
   $('#ocrLog').textContent = 'Running OCR...';
-  const c = $('#canvasBase');
-  if(!c.width){ $('#ocrLog').textContent = 'No image in canvas.'; return; }
-
   try{
-    const { data } = await Tesseract.recognize(c, 'kor+eng');
+    const { data } = await Tesseract.recognize(base, 'kor+eng');
     const text = (data && data.text) ? data.text.trim() : '';
     state.lastText = text;
     $('#ocrLog').textContent = text || '(no text detected)';
 
-    const translated = await translateText(text);
+    // translate
+    const translated = await translateSmart(text);
     state.translated = translated;
     $('#ocrLog').textContent += '\n\n--- English Translation ---\n' + translated;
 
-    drawTranslatedOverlay(translated);
+    // draw overlay
+    drawOverlay(translated);
+
+    // detect allergen from translated text
     state.allergens = detectAllergens(translated);
     updateVerdict();
   }catch(e){
-    $('#ocrLog').textContent = 'Error: ' + e.message;
+    $('#ocrLog').textContent = 'OCR error: ' + e.message;
   }
 }
 
-/* === TRANSLATE === */
-async function translateText(text){
+/* ---------- SMART TRANSLATE ---------- */
+/* 1) try Google unofficial web translate
+   2) fallback to LibreTranslate
+*/
+async function translateSmart(text){
   if(!text) return '';
+  // 1) Google (unofficial)
   try{
-    const res = await fetch("https://libretranslate.de/translate", {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ q:text, source:"ko", target:"en" })
-    });
-    const data = await res.json();
-    return data.translatedText || '';
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=en&dt=t&q=' + encodeURIComponent(text);
+    const res = await fetch(url);
+    const json = await res.json();
+    // google format: [[["translated","original",...],...],...]
+    const translated = json[0].map(x=>x[0]).join(' ');
+    return translated;
   }catch(e){
-    console.warn("Translation error:", e);
-    return "(translation failed)";
+    console.warn('Google unofficial translate failed, trying Libre...', e);
+  }
+
+  // 2) Libre (may CORS fail on some hosts)
+  try{
+    const res2 = await fetch('https://libretranslate.de/translate', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({q:text, source:'ko', target:'en'})
+    });
+    const data2 = await res2.json();
+    return data2.translatedText || '(translation failed)';
+  }catch(e2){
+    console.warn('Libre translate failed', e2);
+    return '(translation failed)';
   }
 }
 
-/* === DRAW OVERLAY (ENGLISH ONLY) === */
-function drawTranslatedOverlay(enText){
+/* ---------- DRAW OVERLAY ---------- */
+function drawOverlay(enText){
   const base = $('#canvasBase');
   const o = $('#canvasOverlay');
-  o.width = base.width; o.height = base.height;
+  o.width = base.width;
+  o.height = base.height;
   const ctx = o.getContext('2d');
   ctx.clearRect(0,0,o.width,o.height);
 
-  const lines = enText.split(/\n|[.]/).filter(l=>l.trim());
-  const step = Math.max(30, o.height / (lines.length+1));
-  ctx.font = "18px system-ui";
-  ctx.fillStyle = "rgba(8,12,25,0.75)";
-  ctx.fillRect(0, o.height - step*lines.length - 20, o.width, step*lines.length + 20);
-  ctx.fillStyle = "#ecf2ff";
-  lines.forEach((l,i)=>{
-    ctx.fillText(l.trim(), 12, o.height - step*(lines.length - i));
+  if(!enText || enText === '(translation failed)'){
+    // فقط یه گوشه بنویسیم
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    ctx.fillRect(0,0,210,34);
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px system-ui';
+    ctx.fillText('(translation failed)', 10, 22);
+    return;
+  }
+
+  const lines = enText.split(/[\n.]/).filter(l=>l.trim());
+  const step = Math.max(28, o.height/(lines.length+1));
+
+  // پس‌زمینه پایین تصویر
+  ctx.fillStyle = 'rgba(5,8,18,0.7)';
+  const boxH = step*lines.length + 18;
+  ctx.fillRect(0, o.height - boxH, o.width, boxH);
+
+  ctx.fillStyle = '#ecf2ff';
+  ctx.font = '16px system-ui';
+  lines.forEach((ln,idx)=>{
+    ctx.fillText(ln.trim(), 10, o.height - boxH + 16 + idx*step);
   });
 }
 
-/* === DETECT ALLERGENS (from translated text) === */
+/* ---------- ALLERGEN DETECTION ---------- */
 function detectAllergens(text){
   const RX = {
-    milk:/milk/i, soy:/soy/i, nuts:/nut|almond|walnut|cashew/i, peanut:/peanut/i,
-    gluten:/gluten|wheat/i, egg:/egg/i, shellfish:/shellfish|shrimp|crab|lobster/i
+    milk:/milk|dairy|cheese|yogurt/i,
+    soy:/soy|tofu|edamame/i,
+    nuts:/nut|almond|walnut|cashew|pistachio|hazelnut/i,
+    peanut:/peanut|groundnut/i,
+    gluten:/gluten|wheat|barley|rye|flour/i,
+    egg:/egg|omelette|mayonnaise/i,
+    shellfish:/shellfish|shrimp|prawn|crab|lobster|clam|mussel|oyster/i
   };
   const set = new Set();
-  for(const[k,re] of Object.entries(RX)){
-    if(re.test(text)) set.add(k);
+  for(const [key,re] of Object.entries(RX)){
+    if(re.test(text)) set.add(key);
   }
   return set;
 }
 
-/* === VERDICT === */
+/* ---------- VERDICT ---------- */
 function updateVerdict(){
   const user = $$('.allergen:checked').map(x=>x.value);
-  const hit = [...state.allergens].some(a=>user.includes(a));
-  if(!state.translated){ $('#verdict').textContent='No translation yet.'; return; }
+  const found = [...state.allergens].some(a=>user.includes(a));
 
-  if(hit){
-    $('#verdict').innerHTML = '<span class="pill" style="background:rgba(255,107,107,.15);border-color:rgba(255,107,107,.4)">⛔ Contains your allergen.</span>';
+  if(!state.translated){
+    $('#verdict').textContent = 'No translation.';
+    return;
+  }
+
+  if(found){
+    $('#verdict').innerHTML = '<span class="pill" style="background:rgba(255,107,107,.15);border-color:rgba(255,107,107,.4)">⛔ Contains one of your allergens.</span>';
   }else{
-    $('#verdict').innerHTML = '<span class="pill" style="background:rgba(110,231,183,.12);border-color:rgba(110,231,183,.35)">✅ Safe: no allergen detected.</span>';
+    $('#verdict').innerHTML = '<span class="pill" style="background:rgba(110,231,183,.12);border-color:rgba(110,231,183,.35)">✅ No allergen signals in translated text.</span>';
   }
 }
-$$('.allergen').forEach(cb=>cb.addEventListener('change',updateVerdict));
+$$('.allergen').forEach(cb=>cb.addEventListener('change', updateVerdict));
 </script>
 </body>
 </html>
