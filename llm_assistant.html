@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Smart Menu Allergy Vision — SIIF 2025</title>
+<title>Vision Allergy Checker — SIIF 2025</title>
 
-<!-- OCR (help only) -->
+<!-- OCR (helper) -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 <!-- Vision (browser, free) -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
@@ -49,8 +49,8 @@ input{
   background:#0b1430;color:var(--ink);border:1px solid var(--line);
   border-radius:8px;padding:8px 10px
 }
-video,canvas{
-  width:100%;max-height:340px;border-radius:12px;
+video,canvas,img{
+  width:100%;max-height:360px;border-radius:12px;
   border:1px solid var(--line);background:#0b1430;object-fit:contain;
 }
 .thumbs{display:flex;gap:10px;overflow-x:auto;margin-top:8px}
@@ -72,13 +72,13 @@ video,canvas{
 </style>
 </head>
 <body>
-<h1>Smart Menu Allergy Vision</h1>
-<div class="sub">Take / upload a menu → draw on one dish → vision + text check → allergy verdict</div>
+<h1>Vision Allergy Checker</h1>
+<div class="sub">Take / upload food or menu → vision + light OCR → compare with your allergy list</div>
 
 <div class="app">
   <!-- LEFT -->
   <section class="card">
-    <h2>1) Capture / Upload menu</h2>
+    <h2>1) Capture / Upload</h2>
     <div class="row">
       <select id="cameraSelect"></select>
       <button id="startCam">Start Camera</button>
@@ -92,23 +92,19 @@ video,canvas{
     <canvas id="canvas" hidden></canvas>
 
     <div class="row" style="margin-top:8px">
-      <button id="addView">📸 Use this image</button>
+      <button id="useFrame">📸 Use current frame</button>
       <button id="clearAll" class="secondary">Clear All</button>
-      <span class="badge">Tip: take a close, front photo of the menu item</span>
+      <span class="badge">System will auto-run VISION on every image.</span>
     </div>
     <div id="thumbs" class="thumbs"></div>
 
-    <h2 style="margin-top:14px">2) Select dish area (draw)</h2>
-    <p class="badge">Draw a rectangle over the dish / menu item you want to check.</p>
-    <canvas id="menuCanvas"></canvas>
-
-    <h2 style="margin-top:14px">3) What I saw</h2>
-    <div id="scanOut" class="out">No region selected yet.</div>
+    <h2 style="margin-top:14px">2) Result (auto)</h2>
+    <div id="scanOut" class="out">No image yet.</div>
   </section>
 
   <!-- RIGHT -->
   <aside class="card">
-    <h2>4) Buyer allergy profile</h2>
+    <h2>3) Buyer allergy profile</h2>
     <div class="row">
       <label class="pill"><input type="checkbox" class="allergen" value="milk"> Milk / 우유</label>
       <label class="pill"><input type="checkbox" class="allergen" value="soy"> Soy / 대두</label>
@@ -119,7 +115,7 @@ video,canvas{
       <label class="pill"><input type="checkbox" class="allergen" value="shellfish"> Shellfish</label>
     </div>
 
-    <h2 style="margin-top:14px">5) Verdict</h2>
+    <h2 style="margin-top:14px">4) Verdict</h2>
     <div id="verdict" class="out">No scan.</div>
 
     <div class="footer">© 2025 Faranaksadat Solat • SIIF 2025</div>
@@ -132,24 +128,22 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const state = {
-  views: [],
-  stream: null,
-  imageCapture: null,
-  deviceId: null,
-  menuImage: null,
-  coco: null,
-  lastText: '',
-  visionAllergens: new Set(),
-  textAllergens: new Set()
+  stream:null,
+  imageCapture:null,
+  deviceId:null,
+  coco:null,
+  lastText:'',
+  textAllergens:new Set(),
+  visionAllergens:new Set()
 };
 
-/* ===== vision load ===== */
+/* ===== load vision model ===== */
 (async function(){
   try{
     state.coco = await cocoSsd.load({base:'lite_mobilenet_v2'});
     console.log('vision ready');
   }catch(e){
-    console.warn('vision load failed', e);
+    console.warn('vision load fail', e);
   }
 })();
 
@@ -176,25 +170,25 @@ async function pickBack(){
 async function startCamera(){
   try{
     const dev = isMobile? await pickBack() : state.deviceId;
-    const stream = await navigator.mediaDevices.getUserMedia({
+    const stream=await navigator.mediaDevices.getUserMedia({
       video:{deviceId:dev?{exact:dev}:undefined,facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}
     });
     state.stream=stream;
     $('#video').srcObject=stream;
     const track=stream.getVideoTracks()[0];
-    if('ImageCapture' in window) state.imageCapture=new ImageCapture(track);
+    if('ImageCapture'in window) state.imageCapture=new ImageCapture(track);
   }catch(e){alert('Camera error: '+e.message);}
 }
 function stopCamera(){
-  if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; }
+  if(state.stream){state.stream.getTracks().forEach(t=>t.stop());state.stream=null;}
   $('#video').srcObject=null;
 }
 $('#startCam').onclick=startCamera;
 $('#stopCam').onclick=stopCamera;
-$('#cameraSelect').onchange = e => { state.deviceId = e.target.value; startCamera(); };
+$('#cameraSelect').onchange=e=>{state.deviceId=e.target.value;startCamera();};
 
-/* ===== capture / upload ===== */
-async function takeFrame(){
+/* ===== capture to thumb & analyze ===== */
+async function captureFrame(){
   const v = $('#video');
   if(!v.videoWidth) return null;
   const c = $('#canvas'); const ctx=c.getContext('2d',{willReadFrequently:true});
@@ -202,20 +196,19 @@ async function takeFrame(){
   ctx.drawImage(v,0,0);
   return c.toDataURL('image/png',1.0);
 }
-function addThumb(url){
-  state.views.push({dataURL:url});
+function addThumbAndAnalyze(dataURL){
   const box=$('#thumbs');
   const t=document.createElement('div'); t.className='thumb';
-  t.innerHTML=`<img src="${url}"><button>×</button>`;
-  t.querySelector('button').onclick=()=>{t.remove();state.views=state.views.filter(v=>v.dataURL!==url);};
+  t.innerHTML=`<img src="${dataURL}"><button>×</button>`;
+  t.querySelector('button').onclick=()=>{t.remove();};
   box.appendChild(t);
-  loadMenuImage(url);
+  analyzeImageDataURL(dataURL);
 }
-$('#addView').onclick = async ()=>{
-  const url = await takeFrame();
-  if(url) addThumb(url);
+$('#useFrame').onclick=async()=>{
+  const url = await captureFrame();
+  if(url) addThumbAndAnalyze(url);
 };
-$('#fileInput').onchange = e => {
+$('#fileInput').onchange=e=>{
   [...e.target.files].forEach(f=>{
     const u = URL.createObjectURL(f);
     const img = new Image();
@@ -224,76 +217,20 @@ $('#fileInput').onchange = e => {
       c.width=img.naturalWidth; c.height=img.naturalHeight;
       c.getContext('2d').drawImage(img,0,0);
       const data = c.toDataURL('image/png');
-      addThumb(data);
+      addThumbAndAnalyze(data);
       URL.revokeObjectURL(u);
     };
     img.src=u;
   });
 };
-$('#clearAll').onclick = ()=>{
-  state.views = [];
+$('#clearAll').onclick=()=>{
   $('#thumbs').innerHTML='';
-  state.menuImage=null;
-  const mc=$('#menuCanvas'); mc.width=mc.height=0;
-  state.lastText = '';
-  state.textAllergens = new Set();
-  state.visionAllergens = new Set();
-  $('#scanOut').textContent='No region selected yet.';
+  state.lastText='';
+  state.textAllergens=new Set();
+  state.visionAllergens=new Set();
+  $('#scanOut').textContent='No image yet.';
   updateVerdict();
 };
-
-/* ===== load image to menu canvas ===== */
-const menuCanvas = $('#menuCanvas');
-const menuCtx = menuCanvas.getContext('2d');
-function loadMenuImage(dataURL){
-  const img = new Image();
-  img.onload = ()=>{
-    state.menuImage = img;
-    const maxW = menuCanvas.parentElement.clientWidth - 4;
-    const scale = img.width > maxW ? maxW/img.width : 1;
-    menuCanvas.width = img.width * scale;
-    menuCanvas.height = img.height * scale;
-    menuCtx.drawImage(img,0,0,menuCanvas.width,menuCanvas.height);
-  };
-  img.src = dataURL;
-}
-
-/* ===== draw area & analyze ===== */
-let dragStart=null, dragEnd=null;
-menuCanvas.onpointerdown = e=>{
-  if(!state.menuImage) return;
-  const r = menuCanvas.getBoundingClientRect();
-  dragStart = {x:e.clientX - r.left, y:e.clientY - r.top};
-  dragEnd = null;
-};
-menuCanvas.onpointermove = e=>{
-  if(!dragStart) return;
-  const r = menuCanvas.getBoundingClientRect();
-  dragEnd = {x:e.clientX - r.left, y:e.clientY - r.top};
-  redrawMenu();
-};
-menuCanvas.onpointerup = e=>{
-  if(!dragStart) return;
-  const r = menuCanvas.getBoundingClientRect();
-  dragEnd = {x:e.clientX - r.left, y:e.clientY - r.top};
-  analyzeSelection();
-  dragStart = dragEnd = null;
-};
-
-function redrawMenu(){
-  if(!state.menuImage) return;
-  menuCtx.clearRect(0,0,menuCanvas.width,menuCanvas.height);
-  menuCtx.drawImage(state.menuImage,0,0,menuCanvas.width,menuCanvas.height);
-  if(dragStart && dragEnd){
-    const x = Math.min(dragStart.x, dragEnd.x);
-    const y = Math.min(dragStart.y, dragEnd.y);
-    const w = Math.abs(dragEnd.x - dragStart.x);
-    const h = Math.abs(dragEnd.y - dragStart.y);
-    menuCtx.strokeStyle = '#6ee7b7';
-    menuCtx.lineWidth = 2;
-    menuCtx.strokeRect(x,y,w,h);
-  }
-}
 
 /* ===== text allergen detect ===== */
 function detectAllergensFromText(text){
@@ -306,98 +243,86 @@ function detectAllergensFromText(text){
     egg:/egg|계란|난류/i,
     shellfish:/shellfish|shrimp|crab|lobster|조개|게|새우/i
   };
-  const set = new Set();
-  for (const [k,re] of Object.entries(RX)){
+  const set=new Set();
+  for(const[k,re] of Object.entries(RX)){
     if(re.test(text)) set.add(k);
   }
   return set;
 }
 
-/* ===== vision → allergen guess ===== */
+/* ===== vision → pseudo-allergy ===== */
 function visionToAllergens(preds){
   const set = new Set();
   preds.forEach(p=>{
     const cls = p.class.toLowerCase();
     const score = p.score || 0;
     if(score < 0.45) return;
-    // غذاهای واضح
+    // غذاهای مرسوم
     if(/pizza|cake|donut|hot dog|sandwich|burrito|banana|apple|orange|bowl/i.test(cls)){
-      set.add('egg');
-      set.add('gluten');
-      set.add('milk');
+      set.add('egg');      // ممکنه
+      set.add('gluten');   // نان / خمیر
+      set.add('milk');     // سس/خامه
     }
-    // ظرف / bowl -> یعنی غذاییه
-    if(/bowl|spoon|fork|knife/i.test(cls)){
-      // میشه هشدار نرم داد
+    if(/wine glass|cup|bottle/i.test(cls)){
+      set.add('milk'); // نوشیدنی‌های شیری
     }
   });
   return set;
 }
 
-/* ===== analyze selection ===== */
-async function analyzeSelection(){
-  if(!state.menuImage) return;
-  let x = Math.min(dragStart.x, dragEnd.x);
-  let y = Math.min(dragStart.y, dragEnd.y);
-  let w = Math.abs(dragEnd.x - dragStart.x);
-  let h = Math.abs(dragEnd.y - dragStart.y);
-  if(w<10 || h<10) return;
+/* ===== analyze full image ===== */
+async function analyzeImageDataURL(dataURL){
+  $('#scanOut').textContent='Analyzing image (vision + small OCR)…';
+  // make image
+  const img = new Image();
+  img.onload = async ()=>{
+    // create canvas
+    const tmp = document.createElement('canvas');
+    tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
+    const ctx = tmp.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(img,0,0);
 
-  // crop in original scale
-  const sx = state.menuImage.width / menuCanvas.width;
-  const sy = state.menuImage.height / menuCanvas.height;
-  const srcX = x*sx, srcY=y*sy, srcW=w*sx, srcH=h*sy;
+    // OCR (helper only)
+    let txt='';
+    try{
+      const ocr = await Tesseract.recognize(tmp,'eng+kor');
+      txt = (ocr.data.text||'').trim();
+    }catch(e){}
 
-  const tmp = document.createElement('canvas');
-  tmp.width = srcW; tmp.height = srcH;
-  const tctx = tmp.getContext('2d',{willReadFrequently:true});
-  tctx.drawImage(state.menuImage, srcX, srcY, srcW, srcH, 0,0, srcW, srcH);
+    state.lastText = txt;
+    state.textAllergens = detectAllergensFromText(txt);
 
-  $('#scanOut').textContent = 'Analyzing (vision + small OCR)…';
+    // VISION
+    let visionFound = [];
+    if(state.coco){
+      const preds = await state.coco.detect(tmp);
+      const ag = visionToAllergens(preds);
+      state.visionAllergens = ag;
+      visionFound = [...ag];
 
-  // OCR (help)
-  let text = '';
-  try{
-    const ocr = await Tesseract.recognize(tmp, 'eng+kor');
-    text = (ocr.data.text || '').trim();
-  }catch(e){}
-
-  state.lastText = text;
-  state.textAllergens = detectAllergensFromText(text);
-
-  // vision
-  let visionFound = [];
-  if(state.coco){
-    const preds = await state.coco.detect(tmp);
-    const guess = visionToAllergens(preds);
-    state.visionAllergens = guess;
-    visionFound = [...guess];
-    // draw names on main canvas
-    redrawMenu();
-    if(visionFound.length){
-      menuCtx.fillStyle='rgba(0,0,0,.35)';
-      menuCtx.fillRect(x, y-20, 140, 18);
-      menuCtx.fillStyle='#fff';
-      menuCtx.font='11px system-ui';
-      menuCtx.fillText('vision: '+visionFound.join(', '), x+3, y-7);
+      // draw quick overlay in scanOut (text only)
+      const shortPreds = preds
+        .filter(p=>p.score>0.5)
+        .map(p=>p.class + ' ' + Math.round(p.score*100)+'%')
+        .slice(0,5)
+        .join(' • ');
+      let out='Vision objects: '+(shortPreds || '(none)')+'\n';
+      if(txt){
+        out += 'Text hints: ' + txt.split('\n').map(l=>l.trim()).filter(l=>l).slice(0,4).join(' · ');
+      }else{
+        out += 'Text hints: (none)';
+      }
+      $('#scanOut').textContent = out;
+    } else {
+      state.visionAllergens = new Set();
+      let out='Vision model not ready.\n';
+      out += txt? 'Text: '+txt : 'Text: (none)';
+      $('#scanOut').textContent = out;
     }
-  } else {
-    state.visionAllergens = new Set();
-  }
 
-  let out = '';
-  if(text){
-    out += 'Text (for reference):\n' + text + '\n';
-  } else {
-    out += 'Text: (none)\n';
-  }
-  if(visionFound.length){
-    out += 'Vision guess: ' + visionFound.join(', ');
-  } else {
-    out += 'Vision guess: (none / unsure)';
-  }
-  $('#scanOut').textContent = out;
-  updateVerdict();
+    updateVerdict();
+  };
+  img.src = dataURL;
 }
 
 /* ===== verdict ===== */
@@ -411,27 +336,24 @@ function updateVerdict(){
     return;
   }
 
-  // text first
   const textConflict = textAll.some(a=>userSel.includes(a));
   if(textConflict){
-    $('#verdict').innerHTML = '<span class="pill no">⛔ Label/menu text has your allergen.</span>';
+    $('#verdict').innerHTML = '<span class="pill no">⛔ Text on image contains your allergen.</span>';
     return;
   }
 
-  // vision next
   const visionConflict = visionAll.some(a=>userSel.includes(a));
   if(visionConflict){
-    $('#verdict').innerHTML = '<span class="pill warn">⚠ Image suggests this food may contain your allergen (vision guess).</span>';
+    $('#verdict').innerHTML = '<span class="pill warn">⚠ Vision thinks this food may contain your allergen.</span>';
     return;
   }
 
-  // user has allergy but we didn’t see anything
   if(userSel.length && !textAll.length && !visionAll.length){
-    $('#verdict').innerHTML = '<span class="pill warn">⚠ Text was clean and vision unsure. Please confirm with staff.</span>';
+    $('#verdict').innerHTML = '<span class="pill warn">⚠ Text clean, vision unsure. Please confirm.</span>';
     return;
   }
 
-  $('#verdict').innerHTML = '<span class="pill ok">✅ No allergen signals in this region.</span>';
+  $('#verdict').innerHTML = '<span class="pill ok">✅ No allergen signals in this image.</span>';
 }
 $$('.allergen').forEach(cb=>cb.addEventListener('change',updateVerdict));
 
