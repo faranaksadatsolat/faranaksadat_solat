@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Smart Menu Vision — Overlay Translate (demo)</title>
+<title>Smart Menu Vision — Overlay Translate (fixed)</title>
 
 <!-- OCR -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
@@ -52,6 +52,7 @@ select,input{background:#0b1430;color:var(--ink);border:1px solid var(--line);bo
   width:100%;height:auto;display:block;
   border-radius:14px;
 }
+.hidden{display:none!important}
 .thumbs{display:flex;gap:10px;overflow-x:auto;margin-top:8px}
 .thumb{position:relative;flex:0 0 108px}
 .thumb img{width:108px;height:86px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
@@ -68,14 +69,14 @@ select,input{background:#0b1430;color:var(--ink);border:1px solid var(--line);bo
 </head>
 <body>
 <h1>Smart Menu Vision — Overlay Translate</h1>
-<div class="sub">Photo → OCR (ko/en) → inline EN on image → check allergens</div>
+<div class="sub">Photo → OCR (ko/en) → draw EN on image → check allergens</div>
 
 <div class="app">
   <!-- LEFT -->
   <section class="card">
     <h2>1) Capture / Upload</h2>
     <div class="row">
-      <select id="cameraSelect"></select>
+      <select id="cameraSelect" title="Camera"></select>
       <button id="startCam">Start Camera</button>
       <button id="stopCam" class="secondary">Stop</button>
       <label class="secondary" style="padding:9px 12px;cursor:pointer">
@@ -92,11 +93,11 @@ select,input{background:#0b1430;color:var(--ink);border:1px solid var(--line);bo
     <div class="row" style="margin-top:8px">
       <button id="captureBtn">📸 Use current frame</button>
       <button id="clearAll" class="secondary">Clear All</button>
-      <span class="badge">Overlay is drawn right on image (like GTranslate).</span>
+      <span class="badge">Every image will auto-run OCR + overlay.</span>
     </div>
     <div id="thumbs" class="thumbs"></div>
 
-    <h2 style="margin-top:14px">2) OCR log (for you)</h2>
+    <h2 style="margin-top:14px">2) OCR log (for debugging)</h2>
     <div id="ocrLog" class="out">No image yet.</div>
   </section>
 
@@ -133,7 +134,7 @@ const state = {
   textAllergens:new Set()
 };
 
-/* mini KR → EN (for overlay) */
+/* small KR→EN dictionary for overlay */
 const miniDict = {
   "정식":"set meal",
   "메뉴":"menu",
@@ -156,25 +157,29 @@ const miniDict = {
   "김치":"kimchi"
 };
 function toENtoken(token){
-  for(const[k,v] of Object.entries(miniDict)){
+  for(const [k,v] of Object.entries(miniDict)){
     if(token.includes(k)) return v;
   }
-  return token; // fallback: show original
+  return token;
 }
 
 /* camera */
 async function listCameras(){
-  const devs = await navigator.mediaDevices.enumerateDevices();
-  const vids = devs.filter(d=>d.kind==='videoinput');
-  const sel = $('#cameraSelect'); sel.innerHTML='';
-  vids.forEach((d,i)=>{
-    const o=document.createElement('option');
-    o.value=d.deviceId;
-    o.textContent=d.label||`Camera ${i+1}`;
-    sel.appendChild(o);
-  });
-  if(!state.deviceId && vids[0]) state.deviceId = vids[0].deviceId;
-  if(isMobile) sel.style.display='none';
+  try{
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const vids = devs.filter(d=>d.kind==='videoinput');
+    const sel = $('#cameraSelect'); sel.innerHTML='';
+    vids.forEach((d,i)=>{
+      const o=document.createElement('option');
+      o.value=d.deviceId;
+      o.textContent=d.label || `Camera ${i+1}`;
+      sel.appendChild(o);
+    });
+    if(!state.deviceId && vids[0]) state.deviceId=vids[0].deviceId;
+    if(isMobile) sel.style.display='none';
+  }catch(e){
+    console.warn('listCameras error', e);
+  }
 }
 async function startCamera(){
   try{
@@ -183,7 +188,7 @@ async function startCamera(){
       video:{
         deviceId: state.deviceId?{exact:state.deviceId}:undefined,
         facingMode:'environment',
-        width:{ideal:1920}, height:{ideal:1080}
+        width:{ideal:1920},height:{ideal:1080}
       }
     });
     state.stream = stream;
@@ -194,34 +199,42 @@ async function startCamera(){
       document.body.appendChild(v);
     }
     v.srcObject = stream;
-    const track=stream.getVideoTracks()[0];
-    if('ImageCapture' in window) state.imageCapture=new ImageCapture(track);
-  }catch(e){ alert('camera error: '+e.message); }
+    const track = stream.getVideoTracks()[0];
+    if('ImageCapture' in window){
+      state.imageCapture = new ImageCapture(track);
+    }
+  }catch(e){
+    alert('Camera error: '+e.message);
+  }
 }
 function stopCamera(){
-  if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; }
+  if(state.stream){
+    state.stream.getTracks().forEach(t=>t.stop());
+    state.stream=null;
+  }
 }
-$('#startCam').onclick=startCamera;
-$('#stopCam').onclick=stopCamera;
-$('#cameraSelect').onchange=e=>{state.deviceId=e.target.value;startCamera();};
+$('#startCam').onclick = startCamera;
+$('#stopCam').onclick = stopCamera;
+$('#cameraSelect').onchange = e=>{ state.deviceId=e.target.value; startCamera(); };
 
-/* capture frame */
+/* capture current frame */
 async function captureFrame(){
   const v = document.getElementById('video');
-  if(!v || !v.videoWidth) return null;
-  const c = document.getElementById('canvasBase');
-  const ctx = c.getContext('2d');
-  c.width = v.videoWidth; c.height = v.videoHeight;
+  if(!v || !v.videoWidth){
+    $('#ocrLog').textContent='No video frame.';
+    return;
+  }
+  const c = $('#canvasBase'); const ctx=c.getContext('2d');
+  c.width=v.videoWidth; c.height=v.videoHeight;
   ctx.drawImage(v,0,0);
   drawOverlayClear();
-  const dataURL = c.toDataURL('image/png',1.0);
   analyzeImageFromCanvas();
-  addThumb(dataURL);
+  addThumb(c.toDataURL('image/png'));
 }
 $('#captureBtn').onclick = captureFrame;
 
 /* upload */
-$('#fileInput').onchange = e=>{
+$('#fileInput').onchange = (e)=>{
   const f=e.target.files[0];
   if(!f) return;
   const u=URL.createObjectURL(f);
@@ -248,8 +261,7 @@ function addThumb(dataURL){
 
 /* clear */
 $('#clearAll').onclick=()=>{
-  const c=$('#canvasBase'); const ctx=c.getContext('2d');
-  ctx.clearRect(0,0,c.width,c.height);
+  const c=$('#canvasBase'); c.getContext('2d').clearRect(0,0,c.width,c.height);
   drawOverlayClear();
   $('#ocrLog').textContent='No image yet.';
   state.lastText=''; state.textAllergens=new Set();
@@ -257,7 +269,7 @@ $('#clearAll').onclick=()=>{
   $('#thumbs').innerHTML='';
 };
 
-/* overlay canvas */
+/* overlay clear */
 function drawOverlayClear(){
   const b=$('#canvasBase');
   const o=$('#canvasOverlay');
@@ -266,23 +278,26 @@ function drawOverlayClear(){
   ctx.clearRect(0,0,o.width,o.height);
 }
 
-/* OCR + overlay draw */
+/* OCR */
 async function analyzeImageFromCanvas(){
   const base = $('#canvasBase');
-  if(!base.width) return;
+  if(!base.width){
+    $('#ocrLog').textContent='No image in canvas.';
+    return;
+  }
   $('#ocrLog').textContent='Running OCR…';
   try{
     const {data} = await Tesseract.recognize(base,'eng+kor');
-    state.lastText = data.text || '';
-    $('#ocrLog').textContent = state.lastText.trim() || '(empty)';
+    const text = (data && data.text) ? data.text : '';
+    state.lastText = text;
+    $('#ocrLog').textContent = text.trim() ? text.trim() : '(empty OCR result)';
 
-    // draw overlay word-by-word
     drawOverlayFromTessData(data);
 
-    // detect allergens
-    state.textAllergens = detectAllergensFromText(state.lastText);
+    state.textAllergens = detectAllergensFromText(text);
     updateVerdict();
   }catch(e){
+    console.error(e);
     $('#ocrLog').textContent='OCR error: '+e.message;
   }
 }
@@ -292,25 +307,32 @@ function drawOverlayFromTessData(data){
   const ctx = o.getContext('2d');
   ctx.clearRect(0,0,o.width,o.height);
 
-  // scale because tess boxes are in image coords
-  const scaleX = o.width / data.imageSize.width;
-  const scaleY = o.height / data.imageSize.height;
+  if(!data) return;
 
-  // go through words
-  (data.words||[]).forEach(w=>{
+  // fallback size
+  const base = $('#canvasBase');
+  const imgW = data.imageSize?.width  || base.width  || 1;
+  const imgH = data.imageSize?.height || base.height || 1;
+
+  const scaleX = o.width / imgW;
+  const scaleY = o.height / imgH;
+
+  const words = Array.isArray(data.words) ? data.words : [];
+  if(!words.length) return;
+
+  words.forEach(w=>{
     if(!w.text) return;
-    const x = w.bbox.x0 * scaleX;
-    const y = w.bbox.y0 * scaleY;
-    const wdt = (w.bbox.x1 - w.bbox.x0) * scaleX;
-    const hgt = (w.bbox.y1 - w.bbox.y0) * scaleY;
+    const x = (w.bbox?.x0 || 0) * scaleX;
+    const y = (w.bbox?.y0 || 0) * scaleY;
+    const wdt = ((w.bbox?.x1 || 0) - (w.bbox?.x0 || 0)) * scaleX;
+    const hgt = ((w.bbox?.y1 || 0) - (w.bbox?.y0 || 0)) * scaleY;
+    if(wdt<=0 || hgt<=0) return;
 
     const en = toENtoken(w.text.trim());
 
-    // background
     ctx.fillStyle='rgba(6,10,18,0.75)';
     ctx.fillRect(x, y, wdt, hgt);
 
-    // text
     ctx.fillStyle='#ecf2ff';
     ctx.font = Math.max(10, hgt-2) + 'px system-ui';
     ctx.textBaseline='top';
