@@ -3,50 +3,45 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Smart Menu Vision — Mobile Camera Friendly</title>
+<title>Smart Menu Vision — Auto Translate & Allergy Detection</title>
 
+<!-- Tesseract.js -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 
 <style>
 :root{
-  --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;--line:rgba(255,255,255,.08);
-  --accent:#6ee7b7;--accent2:#64d6ff;
+  --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;--accent:#6ee7b7;
+  --accent2:#64d6ff;--line:rgba(255,255,255,.08);
 }
 *{box-sizing:border-box}
-body{margin:0;padding:16px;background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);color:var(--ink);font-family:system-ui,ui-sans-serif,Roboto}
-h1{text-align:center;font-size:21px;margin:0 0 6px}
-.sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:12px}
+body{margin:0;padding:16px;font-family:system-ui,ui-sans-serif,Roboto;background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);color:var(--ink)}
+h1{text-align:center;font-size:22px;margin-bottom:4px}
+.sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:16px}
 .app{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1.05fr .95fr;gap:14px}
 @media(max-width:900px){.app{grid-template-columns:1fr}}
 .card{background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);border:1px solid var(--line);border-radius:16px;padding:14px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 button{border:0;border-radius:12px;padding:9px 14px;background:linear-gradient(135deg,#6ee7b7,#64d6ff);color:#071021;font-weight:700;cursor:pointer}
 button.secondary{background:#121a36;color:var(--ink);border:1px solid var(--line)}
-select,input{background:#0b1430;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 8px}
-.viewer{position:relative;background:#0b1430;border:1px solid var(--line);border-radius:14px;min-height:240px;margin-top:10px}
-#canvasBase,#canvasOverlay{width:100%;display:block;border-radius:14px}
+.viewer{position:relative;background:#0b1430;border:1px solid var(--line);border-radius:14px;min-height:280px;margin-top:10px}
+#canvasBase,#canvasOverlay{width:100%;border-radius:14px;display:block}
 #video{width:120px;height:70px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#000}
 @media(max-width:600px){#video{width:100%;height:auto}}
 .out{background:#0b1430;border:1px solid var(--line);border-radius:12px;padding:10px;min-height:56px;white-space:pre-wrap}
 .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px}
 .footer{text-align:center;color:var(--muted);font-size:11px;margin-top:10px}
-.thumbs{display:flex;gap:10px;overflow-x:auto;margin-top:8px}
-.thumb{position:relative;flex:0 0 100px}
-.thumb img{width:100px;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
-.thumb button{position:absolute;top:5px;right:5px;background:#192148;color:#fff;border:1px solid var(--line);border-radius:999px;padding:2px 7px}
 </style>
 </head>
 <body>
-<h1>Smart Menu Vision</h1>
-<div class="sub">mobile-friendly camera + overlay translate on image</div>
+<h1>Smart Menu Vision — Auto Translate & Allergy Detection</h1>
+<div class="sub">OCR → Translate (KO→EN) → English overlay → Allergy check</div>
 
 <div class="app">
   <!-- LEFT -->
   <section class="card">
-    <h2>Capture / Upload</h2>
+    <h2>1) Capture / Upload</h2>
     <div class="row">
       <button id="startCam">Start camera</button>
-      <button id="switchCam" class="secondary">Switch front/back</button>
       <button id="stopCam" class="secondary">Stop</button>
       <label class="secondary" style="padding:7px 12px;cursor:pointer">
         Upload
@@ -66,15 +61,13 @@ select,input{background:#0b1430;color:var(--ink);border:1px solid var(--line);bo
       <button id="clearBtn" class="secondary">Clear</button>
     </div>
 
-    <div id="thumbs" class="thumbs"></div>
-
-    <h2 style="margin-top:12px">OCR debug</h2>
+    <h2 style="margin-top:12px">2) OCR + Translation Log</h2>
     <div id="ocrLog" class="out">No image.</div>
   </section>
 
   <!-- RIGHT -->
   <aside class="card">
-    <h2>Allergy profile</h2>
+    <h2>3) Allergy Profile</h2>
     <div class="row">
       <label class="pill"><input type="checkbox" class="allergen" value="milk"> Milk / 우유</label>
       <label class="pill"><input type="checkbox" class="allergen" value="soy"> Soy / 대두</label>
@@ -82,289 +75,172 @@ select,input{background:#0b1430;color:var(--ink);border:1px solid var(--line);bo
       <label class="pill"><input type="checkbox" class="allergen" value="peanut"> Peanut / 땅콩</label>
       <label class="pill"><input type="checkbox" class="allergen" value="gluten"> Gluten / 글루텐</label>
       <label class="pill"><input type="checkbox" class="allergen" value="egg"> Egg / 계란</label>
-      <label class="pill"><input type="checkbox" class="allergen" value="shellfish"> Shellfish</label>
+      <label class="pill"><input type="checkbox" class="allergen" value="shellfish"> Shellfish / 해산물</label>
     </div>
 
-    <h2 style="margin-top:12px">Verdict</h2>
+    <h2 style="margin-top:12px">4) Verdict</h2>
     <div id="verdict" class="out">No scan.</div>
 
-    <div class="footer">© 2025 Faranaksadat Solat</div>
+    <div class="footer">© 2025 Faranaksadat Solat • SIIF 2025</div>
   </aside>
 </div>
 
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-const state = {
-  stream: null,
-  facing: 'environment', // or 'user'
-  lastText: '',
-  textAllergens: new Set()
-};
+const state = { stream: null, lastText: '', translated: '', allergens: new Set() };
 
-// mini KR→EN
-const miniDict = {
-  "정식":"set meal",
-  "메뉴":"menu",
-  "세트":"set",
-  "계란":"egg",
-  "달걀":"egg",
-  "우유":"milk",
-  "치즈":"cheese",
-  "새우":"shrimp",
-  "해물":"seafood",
-  "해산물":"seafood",
-  "소고기":"beef",
-  "돼지고기":"pork",
-  "비빔밥":"bibimbap",
-  "라면":"ramen",
-  "국수":"noodle",
-  "만두":"dumpling",
-  "김치":"kimchi"
-};
-function toENtoken(t){
-  t=t.trim();
-  for(const [k,v] of Object.entries(miniDict)){
-    if(t.includes(k)) return v;
-  }
-  return t; // fallback
-}
-
-/* CAMERA LOGIC */
-async function startCamera(preferredFacing){
+/* === CAMERA === */
+async function startCamera(){
   const v = $('#video');
   const status = $('#camStatus');
-
-  const facing = preferredFacing || state.facing || 'environment';
-
-  // 1) simplest try: video: true
-  try{
-    // for android chrome: we try with facingMode first
+  try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact: facing } },
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     });
-    attachStream(stream);
-    status.textContent = 'Camera opened: ' + facing;
-    return;
-  }catch(e1){
-    // 2) fallback: without exact
-    try{
-      const stream2 = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
-        audio: false
-      });
-      attachStream(stream2);
-      status.textContent = 'Camera opened (fallback): ' + facing;
-      return;
-    }catch(e2){
-      // 3) final fallback: just open any camera
-      try{
-        const stream3 = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        attachStream(stream3);
-        status.textContent = 'Opened default camera (probably front).';
-        state.facing = 'user';
-      }catch(e3){
-        status.textContent = 'Camera blocked. Please allow camera in browser settings.';
-      }
-    }
+    v.srcObject = stream;
+    state.stream = stream;
+    status.textContent = 'Camera started.';
+  } catch(e){
+    status.textContent = 'Camera blocked or unavailable: ' + e.message;
   }
 }
-
-function attachStream(stream){
-  const v = $('#video');
-  if(state.stream){
-    state.stream.getTracks().forEach(t=>t.stop());
-  }
-  state.stream = stream;
-  v.srcObject = stream;
-}
-
 function stopCamera(){
-  if(state.stream){
-    state.stream.getTracks().forEach(t=>t.stop());
-    state.stream = null;
-  }
+  if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; }
   $('#video').srcObject = null;
   $('#camStatus').textContent = 'Camera stopped.';
 }
-
-$('#startCam').onclick = ()=>startCamera();
+$('#startCam').onclick = startCamera;
 $('#stopCam').onclick = stopCamera;
-$('#switchCam').onclick = ()=>{
-  state.facing = (state.facing === 'environment') ? 'user' : 'environment';
-  startCamera(state.facing);
-};
 
-/* CAPTURE FRAME */
+/* === CAPTURE === */
 $('#captureBtn').onclick = ()=>{
   const v = $('#video');
   if(!v.srcObject || !v.videoWidth){
     $('#ocrLog').textContent = 'No camera frame.';
     return;
   }
-  const base = $('#canvasBase');
-  const ctx = base.getContext('2d');
-  base.width = v.videoWidth;
-  base.height = v.videoHeight;
+  const c = $('#canvasBase');
+  const ctx = c.getContext('2d');
+  c.width = v.videoWidth;
+  c.height = v.videoHeight;
   ctx.drawImage(v,0,0);
-  clearOverlay();
-  runOCRfromCanvas();
-  addThumb(base.toDataURL('image/png'));
+  analyzeImage();
 };
 
-/* UPLOAD */
-$('#fileInput').onchange = (e)=>{
+/* === UPLOAD === */
+$('#fileInput').onchange = e=>{
   const f = e.target.files[0];
   if(!f) return;
   const u = URL.createObjectURL(f);
   const img = new Image();
   img.onload = ()=>{
-    const base = $('#canvasBase');
-    const ctx = base.getContext('2d');
-    base.width = img.naturalWidth;
-    base.height = img.naturalHeight;
+    const c = $('#canvasBase');
+    const ctx = c.getContext('2d');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
     ctx.drawImage(img,0,0);
-    clearOverlay();
-    runOCRfromCanvas();
-    addThumb(base.toDataURL('image/png'));
+    analyzeImage();
     URL.revokeObjectURL(u);
   };
   img.src = u;
 };
 
-/* THUMBS */
-function addThumb(dataURL){
-  const box = $('#thumbs');
-  const d = document.createElement('div');
-  d.className = 'thumb';
-  d.innerHTML = `<img src="${dataURL}"><button>×</button>`;
-  d.querySelector('button').onclick = ()=>d.remove();
-  box.appendChild(d);
-}
-
-/* CLEAR */
+/* === CLEAR === */
 $('#clearBtn').onclick = ()=>{
-  const base = $('#canvasBase');
-  base.getContext('2d').clearRect(0,0,base.width,base.height);
-  clearOverlay();
+  const c = $('#canvasBase'); c.getContext('2d').clearRect(0,0,c.width,c.height);
+  const o = $('#canvasOverlay'); o.getContext('2d').clearRect(0,0,o.width,o.height);
   $('#ocrLog').textContent = 'No image.';
-  state.lastText = '';
-  state.textAllergens = new Set();
-  updateVerdict();
+  $('#verdict').textContent = 'No scan.';
 };
 
-/* OVERLAY */
-function clearOverlay(){
-  const base = $('#canvasBase');
-  const o = $('#canvasOverlay');
-  o.width = base.width;
-  o.height = base.height;
-  o.getContext('2d').clearRect(0,0,o.width,o.height);
-}
+/* === OCR + TRANSLATE === */
+async function analyzeImage(){
+  $('#ocrLog').textContent = 'Running OCR...';
+  const c = $('#canvasBase');
+  if(!c.width){ $('#ocrLog').textContent = 'No image in canvas.'; return; }
 
-/* OCR */
-async function runOCRfromCanvas(){
-  const base = $('#canvasBase');
-  if(!base.width){
-    $('#ocrLog').textContent = 'No image in canvas.';
-    return;
-  }
-  $('#ocrLog').textContent = 'Running OCR…';
   try{
-    const {data} = await Tesseract.recognize(base, 'eng+kor');
+    const { data } = await Tesseract.recognize(c, 'kor+eng');
     const text = (data && data.text) ? data.text.trim() : '';
     state.lastText = text;
-    $('#ocrLog').textContent = text || '(empty text)';
-    drawOverlayFromData(data);
-    state.textAllergens = detectAllergens(text);
+    $('#ocrLog').textContent = text || '(no text detected)';
+
+    const translated = await translateText(text);
+    state.translated = translated;
+    $('#ocrLog').textContent += '\n\n--- English Translation ---\n' + translated;
+
+    drawTranslatedOverlay(translated);
+    state.allergens = detectAllergens(translated);
     updateVerdict();
   }catch(e){
-    $('#ocrLog').textContent = 'OCR error: ' + e.message;
+    $('#ocrLog').textContent = 'Error: ' + e.message;
   }
 }
 
-/* SAFE DRAW */
-function drawOverlayFromData(data){
+/* === TRANSLATE === */
+async function translateText(text){
+  if(!text) return '';
+  try{
+    const res = await fetch("https://libretranslate.de/translate", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ q:text, source:"ko", target:"en" })
+    });
+    const data = await res.json();
+    return data.translatedText || '';
+  }catch(e){
+    console.warn("Translation error:", e);
+    return "(translation failed)";
+  }
+}
+
+/* === DRAW OVERLAY (ENGLISH ONLY) === */
+function drawTranslatedOverlay(enText){
   const base = $('#canvasBase');
   const o = $('#canvasOverlay');
+  o.width = base.width; o.height = base.height;
   const ctx = o.getContext('2d');
   ctx.clearRect(0,0,o.width,o.height);
-  if(!data) return;
 
-  const words = Array.isArray(data.words) ? data.words : [];
-  if(!words.length) return;
-
-  const imgW = (data.imageSize && data.imageSize.width) ? data.imageSize.width : (base.width || 1);
-  const imgH = (data.imageSize && data.imageSize.height) ? data.imageSize.height : (base.height || 1);
-
-  const scaleX = o.width / imgW;
-  const scaleY = o.height / imgH;
-
-  words.forEach(w=>{
-    if(!w || !w.text || !w.bbox) return;
-    const x0 = (w.bbox.x0 || 0) * scaleX;
-    const y0 = (w.bbox.y0 || 0) * scaleY;
-    const wdt = ((w.bbox.x1 || 0) - (w.bbox.x0 || 0)) * scaleX;
-    const hgt = ((w.bbox.y1 || 0) - (w.bbox.y0 || 0)) * scaleY;
-    if(wdt <= 0 || hgt <= 0) return;
-    const en = toENtoken(w.text);
-
-    ctx.fillStyle = 'rgba(5,10,18,.78)';
-    ctx.fillRect(x0, y0, wdt, hgt);
-
-    ctx.fillStyle = '#ecf2ff';
-    ctx.font = Math.max(10, hgt - 2) + 'px system-ui';
-    ctx.textBaseline = 'top';
-    ctx.fillText(en, x0 + 2, y0 + 1, wdt - 4);
+  const lines = enText.split(/\n|[.]/).filter(l=>l.trim());
+  const step = Math.max(30, o.height / (lines.length+1));
+  ctx.font = "18px system-ui";
+  ctx.fillStyle = "rgba(8,12,25,0.75)";
+  ctx.fillRect(0, o.height - step*lines.length - 20, o.width, step*lines.length + 20);
+  ctx.fillStyle = "#ecf2ff";
+  lines.forEach((l,i)=>{
+    ctx.fillText(l.trim(), 12, o.height - step*(lines.length - i));
   });
 }
 
-/* allergen */
+/* === DETECT ALLERGENS (from translated text) === */
 function detectAllergens(text){
   const RX = {
-    milk:/milk|우유/i,
-    soy:/soy|대두/i,
-    nuts:/almond|walnut|cashew|견과|호두|아몬드/i,
-    peanut:/peanut|땅콩/i,
-    gluten:/gluten|wheat|밀\b|소맥/i,
-    egg:/egg|계란|난류|달걀/i,
-    shellfish:/shellfish|shrimp|crab|lobster|새우|게|조개/i
+    milk:/milk/i, soy:/soy/i, nuts:/nut|almond|walnut|cashew/i, peanut:/peanut/i,
+    gluten:/gluten|wheat/i, egg:/egg/i, shellfish:/shellfish|shrimp|crab|lobster/i
   };
   const set = new Set();
-  for(const [k,re] of Object.entries(RX)){
+  for(const[k,re] of Object.entries(RX)){
     if(re.test(text)) set.add(k);
   }
   return set;
 }
 
-/* verdict */
+/* === VERDICT === */
 function updateVerdict(){
   const user = $$('.allergen:checked').map(x=>x.value);
-  if(!state.lastText){
-    $('#verdict').innerHTML = '<span class="pill">No scan.</span>';
-    return;
-  }
-  const hit = [...state.textAllergens].some(a=>user.includes(a));
+  const hit = [...state.allergens].some(a=>user.includes(a));
+  if(!state.translated){ $('#verdict').textContent='No translation yet.'; return; }
+
   if(hit){
     $('#verdict').innerHTML = '<span class="pill" style="background:rgba(255,107,107,.15);border-color:rgba(255,107,107,.4)">⛔ Contains your allergen.</span>';
   }else{
-    $('#verdict').innerHTML = '<span class="pill" style="background:rgba(110,231,183,.12);border-color:rgba(110,231,183,.35)">✅ No allergen signals.</span>';
+    $('#verdict').innerHTML = '<span class="pill" style="background:rgba(110,231,183,.12);border-color:rgba(110,231,183,.35)">✅ Safe: no allergen detected.</span>';
   }
 }
 $$('.allergen').forEach(cb=>cb.addEventListener('change',updateVerdict));
-
-/* INIT */
-(async ()=>{
-  if(navigator.mediaDevices?.getUserMedia){
-    // فقط لیست رو میاریم برای دسکتاپ
-    if(!isMobile){
-      try{ await navigator.mediaDevices.enumerateDevices(); }catch{}
-    }
-  }
-})();
 </script>
 </body>
 </html>
