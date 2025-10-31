@@ -3,209 +3,431 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Smart Label Translator — SIIF 2025</title>
+<title>Smart Label / Menu Assistant — SIIF 2025</title>
 
 <!-- OCR -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 
-<!-- Local optional LLM -->
-<script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.48/dist/web-llm.min.js"></script>
-
 <style>
 :root{
-  --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;--accent:#6ee7b7;--accent2:#a78bfa;--line:rgba(255,255,255,.08);
-  --danger:#ff6b6b;--warn:#ffd166;
+  --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;
+  --accent:#6ee7b7;--accent2:#64d6ff;--line:rgba(255,255,255,.08);
 }
 *{box-sizing:border-box}
 body{
   margin:0;padding:16px;
-  font-family:system-ui,Roboto,"Noto Sans";
+  font-family:system-ui,ui-sans-serif,Roboto;
   background:linear-gradient(120deg,#0b1020,#151a33 40%,#0b1020);
   color:var(--ink);
 }
 h1{text-align:center;font-size:22px;margin-bottom:6px}
 .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px}
+
+.app{
+  max-width:1120px;margin:0 auto;
+  display:grid;grid-template-columns:1.1fr .9fr;gap:16px;
+}
+@media(max-width:950px){.app{grid-template-columns:1fr}}
 .card{
   background:linear-gradient(180deg,#121a36 0%,#0e1630 100%);
   border:1px solid var(--line);border-radius:16px;
-  padding:14px;margin-bottom:18px;box-shadow:0 8px 32px rgba(0,0,0,.25);
+  padding:14px;box-shadow:0 8px 32px rgba(0,0,0,.25);
 }
+h2{margin:4px 0 10px;font-size:15px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 button{
   border:0;border-radius:10px;padding:10px 14px;
   background:linear-gradient(135deg,#6ee7b7,#64d6ff);
   color:#071021;font-weight:700;cursor:pointer;
 }
 button.secondary{background:#121a36;color:var(--ink);border:1px solid var(--line)}
-input,select{background:#0b1430;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-video,canvas,img{width:100%;max-height:360px;border-radius:10px;border:1px solid var(--line);object-fit:contain;background:#0b1430}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select{
+  background:#0b1430;color:var(--ink);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px
+}
+video,canvas{
+  width:100%;max-height:330px;border-radius:12px;
+  border:1px solid var(--line);background:#0b1430;object-fit:contain;
+}
 .thumbs{display:flex;gap:10px;overflow-x:auto;margin-top:8px}
 .thumb{position:relative;flex:0 0 108px}
 .thumb img{width:108px;height:86px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
 .thumb button{position:absolute;top:5px;right:5px;border-radius:50%;padding:3px 6px;background:#192148;color:#fff;border:1px solid var(--line)}
-.out{white-space:pre-wrap;background:#0b1430;border:1px solid var(--line);border-radius:12px;padding:12px;min-height:54px;margin-top:8px}
-.note{font-size:12px;color:var(--muted)}
+.out{
+  background:#0b1430;border:1px solid var(--line);border-radius:12px;
+  padding:12px;min-height:56px;font-size:14px
+}
 .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px}
-.ok{background:rgba(110,231,183,.14);border-color:rgba(110,231,183,.35)}
+.ok{background:rgba(110,231,183,.12);border-color:rgba(110,231,183,.35)}
 .no{background:rgba(255,107,107,.14);border-color:rgba(255,107,107,.38)}
 .warn{background:rgba(255,209,102,.14);border-color:rgba(255,209,102,.38)}
 .footer{text-align:center;color:var(--muted);font-size:12px;margin-top:10px}
+.badge{font-size:11px;color:var(--muted)}
 .hidden{display:none!important}
+#menuCanvas{touch-action:none}
 </style>
 </head>
 <body>
-<h1>🩺 Smart Label Translator — SIIF 2025</h1>
-<div class="sub">OCR + Auto Translation + Allergy Detection • EN / KR</div>
+<h1>Smart Label / Menu Assistant — SIIF 2025</h1>
+<div class="sub">Capture → (Normal or Menu mode) → OCR → Allergy check</div>
 
-<div class="card">
-  <h2>1️⃣ Capture or Upload Product Label</h2>
-  <div class="row">
-    <select id="cameraSelect"></select>
-    <button id="startCam">Start Camera</button>
-    <button id="stopCam" class="secondary">Stop</button>
-    <label class="secondary" style="padding:10px;cursor:pointer">Upload Image<input id="fileInput" type="file" accept="image/*" multiple class="hidden"></label>
-  </div>
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="canvas" hidden></canvas>
+<div class="app">
+  <!-- LEFT -->
+  <section class="card">
+    <h2>1) Capture / Upload</h2>
+    <div class="row">
+      <select id="cameraSelect"></select>
+      <button id="startCam">Start Camera</button>
+      <button id="stopCam" class="secondary">Stop</button>
+      <label class="secondary" style="padding:9px 12px;cursor:pointer">Upload
+        <input id="fileInput" type="file" accept="image/*" multiple class="hidden">
+      </label>
+    </div>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" hidden></canvas>
 
-  <div class="row" style="margin-top:8px">
-    <button id="addView">📸 Add View</button>
-    <button id="clearAll" class="secondary">Clear All</button>
-  </div>
-  <div id="thumbs" class="thumbs"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="addView">📸 Add View</button>
+      <button id="clearAll" class="secondary">Clear All</button>
+      <span class="badge">Add 2–5 views of product for better OCR.</span>
+    </div>
+    <div id="thumbs" class="thumbs"></div>
 
-  <h2 style="margin-top:10px">2️⃣ OCR + Translation</h2>
-  <div class="row">
-    <select id="lang"><option value="eng+kor">English + Korean</option></select>
-    <button id="runAll">Run OCR (All Views)</button>
-  </div>
-  <div id="output" class="out">—</div>
+    <div style="height:14px"></div>
+    <h2>2) Mode</h2>
+    <div class="row">
+      <button id="modeLabel" class="secondary">Label Mode</button>
+      <button id="modeMenu" class="secondary">Menu Mode (draw)</button>
+      <span class="badge" id="modeInfo">Current: Label mode</span>
+    </div>
+
+    <div id="labelControls">
+      <h2 style="margin-top:12px">3) OCR (Label mode)</h2>
+      <div class="row">
+        <select id="lang">
+          <option value="eng+kor">English + Korean</option>
+        </select>
+        <button id="runAll">Run OCR (All Views)</button>
+      </div>
+      <div id="labelOut" class="out">Scan a label to see summary.</div>
+    </div>
+
+    <div id="menuControls" class="hidden">
+      <h2 style="margin-top:12px">3) Menu OCR (draw area)</h2>
+      <p class="badge">Upload/choose a menu photo above, then draw a rectangle on it.</p>
+      <canvas id="menuCanvas"></canvas>
+      <div id="menuOut" class="out" style="margin-top:8px">Draw over a menu item…</div>
+    </div>
+  </section>
+
+  <!-- RIGHT -->
+  <aside class="card">
+    <h2>4) Buyer allergy profile</h2>
+    <div class="row">
+      <label class="pill"><input type="checkbox" class="allergen" value="milk">Milk / 우유</label>
+      <label class="pill"><input type="checkbox" class="allergen" value="soy">Soy / 대두</label>
+      <label class="pill"><input type="checkbox" class="allergen" value="nuts">Nuts / 견과류</label>
+      <label class="pill"><input type="checkbox" class="allergen" value="peanut">Peanut / 땅콩</label>
+      <label class="pill"><input type="checkbox" class="allergen" value="gluten">Gluten / 글루텐</label>
+      <label class="pill"><input type="checkbox" class="allergen" value="egg">Egg / 계란</label>
+      <label class="pill"><input type="checkbox" class="allergen" value="shellfish">Shellfish</label>
+    </div>
+
+    <h2 style="margin-top:14px">5) Verdict</h2>
+    <div id="verdict" class="out">No scan yet.</div>
+
+    <div class="footer">© 2025 Faranaksadat Solat • SIIF 2025</div>
+  </aside>
 </div>
-
-<div class="card">
-  <h2>3️⃣ Buyer Allergy Profile</h2>
-  <div class="row">
-    <label class="pill"><input type="checkbox" class="allergen" value="milk">Milk</label>
-    <label class="pill"><input type="checkbox" class="allergen" value="soy">Soy</label>
-    <label class="pill"><input type="checkbox" class="allergen" value="nuts">Nuts</label>
-    <label class="pill"><input type="checkbox" class="allergen" value="peanut">Peanut</label>
-    <label class="pill"><input type="checkbox" class="allergen" value="gluten">Gluten</label>
-    <label class="pill"><input type="checkbox" class="allergen" value="egg">Egg</label>
-    <label class="pill"><input type="checkbox" class="allergen" value="shellfish">Shellfish</label>
-  </div>
-
-  <h2 style="margin-top:10px">4️⃣ Verdict</h2>
-  <div id="verdict" class="out">Run OCR to see result.</div>
-</div>
-
-<div class="footer">© 2025 Faranaksadat Solat • SIIF 2025</div>
 
 <script>
 const $=s=>document.querySelector(s);
 const $$=s=>Array.from(document.querySelectorAll(s));
-const state={views:[],stream:null,imageCapture:null,deviceId:null,merged:{text:'',allergens:new Set()}};
 const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-/* === Camera === */
+const state={
+  mode:'label', // 'label' or 'menu'
+  views:[],
+  stream:null,
+  imageCapture:null,
+  deviceId:null,
+  merged:{text:'', allergens:new Set()},
+  menuImage:null // Image object shown in menu canvas
+};
+
+/* ===== camera ===== */
 async function listCameras(){
   const devs=await navigator.mediaDevices.enumerateDevices();
   const vids=devs.filter(d=>d.kind==='videoinput');
   const sel=$('#cameraSelect'); sel.innerHTML='';
   vids.forEach((d,i)=>{const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||`Camera ${i+1}`;sel.appendChild(o);});
-  if(!state.deviceId&&vids[0])state.deviceId=vids[0].deviceId;
+  if(!state.deviceId && vids[0]) state.deviceId=vids[0].deviceId;
   if(isMobile) sel.style.display='none';
 }
 async function pickBackCamera(){
   const devs=await navigator.mediaDevices.enumerateDevices();
   const vids=devs.filter(d=>d.kind==='videoinput');
-  let back=vids.find(d=>/back|rear|environment/i.test(d.label));
-  return back?back.deviceId:vids[0]?.deviceId||null;
+  const back=vids.find(d=>/back|rear|environment/i.test(d.label));
+  return back?back.deviceId:(vids[0]?.deviceId||null);
 }
 async function startCamera(){
   try{
-    const id=isMobile?await pickBackCamera():state.deviceId;
-    const c={video:{deviceId:id?{exact:id}:undefined,facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}};
-    const stream=await navigator.mediaDevices.getUserMedia(c);
-    state.stream=stream;$('#video').srcObject=stream;
+    const deviceId=isMobile?await pickBackCamera():state.deviceId;
+    const constraints={video:{deviceId:deviceId?{exact:deviceId}:undefined,facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}};
+    const stream=await navigator.mediaDevices.getUserMedia(constraints);
+    state.stream=stream;
+    $('#video').srcObject=stream;
     const track=stream.getVideoTracks()[0];
-    if('ImageCapture'in window)state.imageCapture=new ImageCapture(track);
-  }catch(e){alert('Camera error: '+e.message);}
+    if('ImageCapture'in window) state.imageCapture=new ImageCapture(track);
+  }catch(e){alert('camera error: '+e.message);}
 }
-function stopCamera(){if(state.stream){state.stream.getTracks().forEach(t=>t.stop());state.stream=null;}$('#video').srcObject=null;}
-$('#startCam').onclick=startCamera;$('#stopCam').onclick=stopCamera;
+function stopCamera(){
+  if(state.stream){state.stream.getTracks().forEach(t=>t.stop());state.stream=null;}
+  $('#video').srcObject=null;
+}
+$('#startCam').onclick=startCamera;
+$('#stopCam').onclick=stopCamera;
+$('#cameraSelect').onchange=e=>{state.deviceId=e.target.value;startCamera();};
 
-/* === Capture === */
-async function takeFrame(){
-  const c=$('#canvas'),ctx=c.getContext('2d',{willReadFrequently:true});
-  const v=$('#video');if(!v.videoWidth)return null;
-  c.width=v.videoWidth;c.height=v.videoHeight;ctx.drawImage(v,0,0);
-  return c.toDataURL('image/png',1.0);
+/* ===== capture/upload ===== */
+async function takeFrameAsDataURL(){
+  const v=$('#video'); if(!v.videoWidth) return null;
+  const c=$('#canvas'); const ctx=c.getContext('2d',{willReadFrequently:true});
+  c.width=v.videoWidth; c.height=v.videoHeight;
+  ctx.drawImage(v,0,0);
+  const url=c.toDataURL('image/png',1.0);
+  return url;
 }
 function addThumb(url){
   state.views.push({dataURL:url,text:''});
   const box=$('#thumbs');
   const t=document.createElement('div');t.className='thumb';
   t.innerHTML=`<img src="${url}"><button>×</button>`;
-  t.querySelector('button').onclick=()=>{state.views.splice(state.views.indexOf(t),1);t.remove();};
+  t.querySelector('button').onclick=()=>{t.remove();state.views=state.views.filter(v=>v.dataURL!==url);};
   box.appendChild(t);
-}
-$('#addView').onclick=async()=>{const url=await takeFrame();if(url)addThumb(url);};
-$('#fileInput').onchange=e=>[...e.target.files].forEach(f=>{
-  const u=URL.createObjectURL(f);const i=new Image();
-  i.onload=()=>{const c=document.createElement('canvas');c.width=i.naturalWidth;c.height=i.naturalHeight;c.getContext('2d').drawImage(i,0,0);addThumb(c.toDataURL('image/png'));URL.revokeObjectURL(u);};
-  i.src=u;
-});
-$('#clearAll').onclick=()=>{state.views=[];$('#thumbs').innerHTML='';$('#output').textContent='—';$('#verdict').textContent='Run OCR to see result.';};
 
-/* === Translation === */
-async function translateText(text){
-  try{
-    const url=`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
-    const r=await fetch(url);const d=await r.json();
-    return d?.[0]?.map(x=>x[0]).join(' ')||text;
-  }catch{return text;}
+  // also set as menu image if in menu mode
+  if(state.mode==='menu'){
+    loadMenuImage(url);
+  }
 }
-
-/* === OCR === */
-function preprocess(url){
-  return new Promise(res=>{
-    const i=new Image();
-    i.onload=()=>{const c=document.createElement('canvas');c.width=i.naturalWidth;c.height=i.naturalHeight;
-      const ctx=c.getContext('2d',{willReadFrequently:true});ctx.filter='grayscale(1) contrast(1.6) brightness(1.1)';
-      ctx.drawImage(i,0,0);res(c);};
-    i.src=url;
+$('#addView').onclick=async()=>{const url=await takeFrameAsDataURL();if(url)addThumb(url);};
+$('#clearAll').onclick=()=>{state.views=[];$('#thumbs').innerHTML='';$('#labelOut').textContent='Scan a label to see summary.';$('#menuOut').textContent='Draw over a menu item…';state.menuImage=null;};
+$('#fileInput').onchange=e=>{
+  [...e.target.files].forEach(f=>{
+    const u=URL.createObjectURL(f);
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');
+      c.width=img.naturalWidth;c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0);
+      const data=c.toDataURL('image/png');
+      addThumb(data);
+      URL.revokeObjectURL(u);
+    };
+    img.src=u;
   });
-}
-function detectAllergens(text){
-  const RX={milk:/milk|우유/i,soy:/soy|대두/i,nuts:/nut|견과/i,peanut:/peanut|땅콩/i,gluten:/gluten|밀|소맥/i,egg:/egg|계란/i,shellfish:/shellfish|shrimp|crab|조개|게|새우/i};
-  const set=new Set();for(const[k,v]of Object.entries(RX)){if(v.test(text))set.add(k);}return set;
-}
-
-/* === Run OCR + Translation === */
-$('#runAll').onclick=async()=>{
-  if(!state.views.length){alert('Add an image first.');return;}
-  $('#output').textContent='Running OCR + Translation...';
-  let all='';for(const v of state.views){const c=await preprocess(v.dataURL);const r=await Tesseract.recognize(c,'eng+kor');v.text=r.data.text;all+=r.data.text+'\n';}
-  const translated=await translateText(all);
-  $('#output').innerHTML=`<b>Detected Text:</b><br>${all}<br><br><b>Translated:</b><br>${translated}`;
-  state.merged.text=translated;
-  state.merged.allergens=detectAllergens(translated);
-  updateVerdict();
 };
 
-/* === Verdict === */
+/* ===== preprocess for OCR ===== */
+function preprocess(url){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');
+      c.width=img.naturalWidth;c.height=img.naturalHeight;
+      const ctx=c.getContext('2d',{willReadFrequently:true});
+      ctx.filter='grayscale(1) contrast(1.6) brightness(1.1)';
+      ctx.drawImage(img,0,0);
+      res(c);
+    };
+    img.src=url;
+  });
+}
+
+/* ===== allergen detection ===== */
+function detectAllergens(text){
+  const RX={
+    milk:/milk|우유/i,
+    soy:/soy|대두/i,
+    nuts:/almond|walnut|cashew|nut|견과/i,
+    peanut:/peanut|땅콩/i,
+    gluten:/gluten|밀\b|소맥/i,
+    egg:/egg|계란|난류/i,
+    shellfish:/shellfish|shrimp|crab|lobster|조개|게|새우/i
+  };
+  const set=new Set();
+  for(const[k,re] of Object.entries(RX)){ if(re.test(text)) set.add(k); }
+  return set;
+}
+
+/* ===== verdict ===== */
 function updateVerdict(){
-  const user=$$('.allergen:checked').map(x=>x.value);
+  const userSel=$$('.allergen:checked').map(x=>x.value);
   const found=[...state.merged.allergens];
-  const conflict=found.some(a=>user.includes(a));
-  if(!found.length){$('#verdict').innerHTML='<span class="pill warn">⚠️ No allergens detected in label.</span>';return;}
-  if(conflict){$('#verdict').innerHTML='<span class="pill no">⛔ Contains allergens you selected!</span>';return;}
-  $('#verdict').innerHTML='<span class="pill ok">✅ Safe to buy.</span>';
+  if(!state.merged.text){
+    $('#verdict').textContent='No scan yet.';return;
+  }
+  if(!found.length){
+    $('#verdict').innerHTML='<span class="pill warn">⚠️ No allergen keywords in selected text.</span>';
+    return;
+  }
+  const conflict=found.some(a=>userSel.includes(a));
+  if(conflict){
+    $('#verdict').innerHTML='<span class="pill no">⛔ Contains allergens you selected.</span>';
+  }else{
+    $('#verdict').innerHTML='<span class="pill ok">✅ OK for your profile.</span>';
+  }
 }
 $$('.allergen').forEach(cb=>cb.addEventListener('change',updateVerdict));
 
-/* === Init === */
-(async()=>{if(navigator.mediaDevices)await listCameras();if(isMobile)startCamera();})();
+/* ===== LABEL MODE OCR ===== */
+$('#runAll').onclick=async()=>{
+  if(!state.views.length){alert('Add a view first.');return;}
+  $('#labelOut').textContent='Running OCR…';
+  const lang=$('#lang').value||'eng+kor';
+  let merged='';
+  for(const v of state.views){
+    const c=await preprocess(v.dataURL);
+    const pass=await Tesseract.recognize(c,lang);
+    merged += (pass.data.text||'') + '\n';
+  }
+
+  // post-process: remove garbage short lines
+  const lines=merged.split('\n').map(l=>l.trim()).filter(l=>l.length>1);
+  const cleaned=lines.join(' · ');
+  if(!cleaned){
+    $('#labelOut').textContent='Text unreadable. Please capture closer.';
+    state.merged={text:'',allergens:new Set()};
+    updateVerdict();
+    return;
+  }
+
+  state.merged.text=cleaned;
+  state.merged.allergens=detectAllergens(cleaned);
+  $('#labelOut').textContent=cleaned;
+  updateVerdict();
+};
+
+/* ===== MODE SWITCH ===== */
+$('#modeLabel').onclick=()=>{
+  state.mode='label';
+  $('#labelControls').classList.remove('hidden');
+  $('#menuControls').classList.add('hidden');
+  $('#modeInfo').textContent='Current: Label mode';
+};
+$('#modeMenu').onclick=()=>{
+  state.mode='menu';
+  $('#labelControls').classList.add('hidden');
+  $('#menuControls').classList.remove('hidden');
+  $('#modeInfo').textContent='Current: Menu mode (draw to check)';
+  // if we already have a view, load the last one
+  if(state.views.length){
+    loadMenuImage(state.views[state.views.length-1].dataURL);
+  }
+};
+
+/* ===== MENU MODE (draw & OCR only selected area) ===== */
+const menuCanvas = $('#menuCanvas');
+const menuCtx = menuCanvas.getContext('2d');
+let drawStart=null, drawEnd=null;
+
+function loadMenuImage(dataURL){
+  const img=new Image();
+  img.onload=()=>{
+    state.menuImage=img;
+    // fit canvas to width of card
+    const maxW = menuCanvas.parentElement.clientWidth - 4;
+    const scale = img.width>maxW ? maxW/img.width : 1;
+    menuCanvas.width = img.width*scale;
+    menuCanvas.height = img.height*scale;
+    menuCtx.drawImage(img,0,0,menuCanvas.width,menuCanvas.height);
+  };
+  img.src=dataURL;
+}
+
+function redrawMenuCanvas(){
+  if(!state.menuImage) return;
+  menuCtx.clearRect(0,0,menuCanvas.width,menuCanvas.height);
+  menuCtx.drawImage(state.menuImage,0,0,menuCanvas.width,menuCanvas.height);
+  if(drawStart && drawEnd){
+    const x=Math.min(drawStart.x, drawEnd.x);
+    const y=Math.min(drawStart.y, drawEnd.y);
+    const w=Math.abs(drawEnd.x - drawStart.x);
+    const h=Math.abs(drawEnd.y - drawStart.y);
+    menuCtx.strokeStyle='#6ee7b7';
+    menuCtx.lineWidth=2;
+    menuCtx.strokeRect(x,y,w,h);
+  }
+}
+
+menuCanvas.onpointerdown = e=>{
+  if(!state.menuImage) return;
+  const rect=menuCanvas.getBoundingClientRect();
+  drawStart={x:e.clientX-rect.left, y:e.clientY-rect.top};
+  drawEnd=null;
+};
+menuCanvas.onpointermove = e=>{
+  if(!drawStart) return;
+  const rect=menuCanvas.getBoundingClientRect();
+  drawEnd={x:e.clientX-rect.left, y:e.clientY-rect.top};
+  redrawMenuCanvas();
+};
+menuCanvas.onpointerup = async e=>{
+  if(!drawStart) return;
+  const rect=menuCanvas.getBoundingClientRect();
+  drawEnd={x:e.clientX-rect.left, y:e.clientY-rect.top};
+  redrawMenuCanvas();
+
+  const x=Math.min(drawStart.x, drawEnd.x);
+  const y=Math.min(drawStart.y, drawEnd.y);
+  const w=Math.abs(drawEnd.x - drawStart.x);
+  const h=Math.abs(drawEnd.y - drawStart.y);
+  drawStart=null; drawEnd=null;
+  if(w<10 || h<10){ return; }
+
+  // crop selected area to temp canvas (original scale!)
+  const scaleX = state.menuImage.width / menuCanvas.width;
+  const scaleY = state.menuImage.height / menuCanvas.height;
+
+  const srcX = x * scaleX;
+  const srcY = y * scaleY;
+  const srcW = w * scaleX;
+  const srcH = h * scaleY;
+
+  const tmp=document.createElement('canvas');
+  tmp.width=srcW; tmp.height=srcH;
+  const tctx=tmp.getContext('2d',{willReadFrequently:true});
+  tctx.drawImage(state.menuImage, srcX, srcY, srcW, srcH, 0,0, srcW, srcH);
+
+  $('#menuOut').textContent='Reading selected part…';
+  const pass = await Tesseract.recognize(tmp, 'eng+kor');
+  const txt = (pass.data.text||'').trim();
+  if(!txt){
+    $('#menuOut').textContent='Selected area unreadable. Try again closer.';
+    return;
+  }
+  // short clean
+  const lines=txt.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+  const clean = lines.join(' · ');
+  $('#menuOut').textContent = clean;
+  state.merged.text = clean;
+  state.merged.allergens = detectAllergens(clean);
+  updateVerdict();
+
+  // redraw image (remove rect)
+  redrawMenuCanvas();
+};
+
+/* ===== init ===== */
+(async()=>{
+  if(navigator.mediaDevices?.getUserMedia){
+    await listCameras();
+  }
+  if(isMobile){
+    startCamera();
+  }
+})();
 </script>
 </body>
 </html>
