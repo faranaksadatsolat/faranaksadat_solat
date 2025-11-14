@@ -113,7 +113,7 @@ video,canvas{
 
       <div class="hr"></div>
 
-      <h2>2) OCR all views & smart merge</h2>
+      <h2>2) OCR all views &amp; smart merge</h2>
       <div class="row">
         <select id="lang">
           <option value="eng+kor" selected>English + Korean</option>
@@ -164,7 +164,7 @@ video,canvas{
 
 <script>
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-const $ = s => document.querySelector(s);
+const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 
 const state = {
@@ -175,28 +175,91 @@ const state = {
   merged:{text:'', price:null, expiry:null, mfg:null, allergens:new Set(), origin:null}
 };
 
-/* ===== CAMERA ===== */
+/* ===== CAMERA (prefer back camera on mobile) ===== */
 async function listCameras(){
   if(!navigator.mediaDevices?.enumerateDevices) return;
   const devs = await navigator.mediaDevices.enumerateDevices();
-  const vids = devs.filter(d=>d.kind==='videoinput');
-  const sel = $('#cameraSelect'); sel.innerHTML='';
+  const vids = devs.filter(d=>d.kind === 'videoinput');
+  const sel  = $('#cameraSelect');
+  sel.innerHTML = '';
+
   vids.forEach((d,i)=>{
-    const o=document.createElement('option');
-    o.value=d.deviceId;
-    o.textContent=d.label||`Camera ${i+1}`;
+    const o = document.createElement('option');
+    o.value = d.deviceId;
+    o.textContent = d.label || `Camera ${i+1}`;
     sel.appendChild(o);
   });
+
   if(!state.deviceId && vids[0]) state.deviceId = vids[0].deviceId;
   sel.value = state.deviceId || '';
-  if(isMobile) sel.style.display='none';
+
+  if(isMobile) sel.style.display = 'none';
+}
+
+async function pickBackCameraId(){
+  try{
+    // warm-up permission so labels become visible
+    if(!state.stream){
+      const warm = await navigator.mediaDevices.getUserMedia({ video:true });
+      warm.getTracks().forEach(t=>t.stop());
+    }
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const vids = devs.filter(d=>d.kind === 'videoinput');
+
+    // 1) label contains "back" or "rear"
+    let hit = vids.find(d => /back|rear/i.test(d.label));
+    if(hit) return hit.deviceId;
+
+    // 2) if not found, try second camera as guess
+    if(vids.length > 1) return vids[1].deviceId;
+
+    // 3) fallback: first camera
+    return vids[0]?.deviceId || null;
+  }catch(e){
+    console.warn('pickBackCameraId error', e);
+    return null;
+  }
 }
 
 async function startCamera(){
   try{
     if(state.stream) stopCamera();
-    let constraints = { video:{width:{ideal:2560}, height:{ideal:1440}, facingMode:{ideal:'environment'}} };
-    if(state.deviceId) constraints.video.deviceId = { exact:state.deviceId };
+
+    let constraints;
+
+    if(isMobile){
+      const backId = await pickBackCameraId();
+      if(backId){
+        constraints = {
+          video:{
+            deviceId:{ exact: backId },
+            width:{ ideal:2560 },
+            height:{ ideal:1440 }
+          }
+        };
+        state.deviceId = backId;
+      } else {
+        constraints = {
+          video:{
+            facingMode:{ ideal:'environment' },
+            width:{ ideal:2560 },
+            height:{ ideal:1440 }
+          }
+        };
+      }
+    } else {
+      constraints = {
+        video:{
+          width:{ ideal:2560 },
+          height:{ ideal:1440 },
+          facingMode:{ ideal:'environment' }
+        }
+      };
+      if(state.deviceId){
+        constraints.video.deviceId = { exact: state.deviceId };
+      }
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     state.stream = stream;
     $('#video').srcObject = stream;
@@ -205,50 +268,67 @@ async function startCamera(){
       state.imageCapture = new ImageCapture(track);
     }
   }catch(e){
-    alert('Camera error: '+e.message);
+    alert('Camera error: ' + e.message);
   }
 }
+
 function stopCamera(){
   if(state.stream){
     state.stream.getTracks().forEach(t=>t.stop());
-    state.stream=null;
+    state.stream = null;
   }
-  state.imageCapture=null;
-  $('#video').srcObject=null;
+  state.imageCapture = null;
+  $('#video').srcObject = null;
 }
-$('#cameraSelect').addEventListener('change',e=>{ state.deviceId=e.target.value; startCamera(); });
-$('#startCam').addEventListener('click',startCamera);
-$('#stopCam').addEventListener('click',stopCamera);
+
+$('#cameraSelect').addEventListener('change', e=>{
+  state.deviceId = e.target.value;
+  startCamera();
+});
+$('#startCam').addEventListener('click', startCamera);
+$('#stopCam').addEventListener('click', stopCamera);
 
 /* ===== CAPTURE / UPLOAD ===== */
 async function takeFrameAsDataURL(){
-  const canvas = $('#canvas'); const ctx = canvas.getContext('2d',{willReadFrequently:true});
+  const canvas = $('#canvas');
+  const ctx    = canvas.getContext('2d', {willReadFrequently:true});
+
   if(state.imageCapture){
     const blob = await state.imageCapture.takePhoto().catch(()=>null);
     if(blob){
       const bmp = await createImageBitmap(blob);
-      canvas.width=bmp.width; canvas.height=bmp.height;
+      canvas.width  = bmp.width;
+      canvas.height = bmp.height;
       ctx.drawImage(bmp,0,0);
       return canvas.toDataURL('image/png',1.0);
     }
   }
   const v = $('#video');
   if(!v.videoWidth) return null;
-  canvas.width=v.videoWidth; canvas.height=v.videoHeight;
+  canvas.width  = v.videoWidth;
+  canvas.height = v.videoHeight;
   ctx.drawImage(v,0,0);
   return canvas.toDataURL('image/png',1.0);
 }
+
 function addThumb(dataURL){
   state.views.push({dataURL, text:''});
   renderThumbs();
   $('#fViews').textContent = state.views.length.toString();
 }
+
 function renderThumbs(){
-  const box = $('#thumbs'); box.innerHTML='';
+  const box = $('#thumbs'); 
+  box.innerHTML = '';
   state.views.forEach((v,i)=>{
-    const t=document.createElement('div'); t.className='thumb';
-    t.innerHTML = `<img src="${v.dataURL}" alt="View ${i+1}"><button data-i="${i}">×</button><div class="note">View ${i+1}</div>`;
-    t.querySelector('button').onclick=()=>{
+    const t = document.createElement('div');
+    t.className = 'thumb';
+    t.innerHTML = `
+      <img src="${v.dataURL}" alt="View ${i+1}">
+      <button data-i="${i}">×</button>
+      <div class="note">View ${i+1}</div>
+    `;
+    t.querySelector('button').onclick = () =>{
       state.views.splice(i,1);
       renderThumbs();
       mergeFacts();
@@ -257,106 +337,122 @@ function renderThumbs(){
     box.appendChild(t);
   });
 }
+
 $('#addView').addEventListener('click', async ()=>{
   if(!state.stream && !$('#video').srcObject && navigator.mediaDevices?.getUserMedia){
     await startCamera();
   }
-  const url = await takeFrameAsDataURL(); if(url) addThumb(url);
+  const url = await takeFrameAsDataURL();
+  if(url) addThumb(url);
 });
-$('#clearAll').addEventListener('click',()=>{
-  state.views.length=0;
+
+$('#clearAll').addEventListener('click', ()=>{
+  state.views.length = 0;
   renderThumbs();
   mergeFacts();
-  $('#qaOut').textContent='Type a question above.';
-  $('#fViews').textContent='0';
+  $('#qaOut').textContent = 'Type a question above.';
+  $('#fViews').textContent = '0';
 });
-$('#fileInput').addEventListener('change',ev=>{
-  const files=[...(ev.target.files||[])];
+
+$('#fileInput').addEventListener('change', ev=>{
+  const files = [...(ev.target.files||[])];
   files.slice(0,8).forEach(f=>{
-    const url=URL.createObjectURL(f);
-    const img=new Image();
-    img.onload=()=>{
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = ()=>{
       URL.revokeObjectURL(url);
-      const c=document.createElement('canvas');
-      c.width=img.naturalWidth; c.height=img.naturalHeight;
+      const c = document.createElement('canvas');
+      c.width  = img.naturalWidth;
+      c.height = img.naturalHeight;
       c.getContext('2d').drawImage(img,0,0);
       addThumb(c.toDataURL('image/png'));
     };
-    img.src=url;
+    img.src = url;
   });
 });
 
 /* ===== OCR PREPROCESS ===== */
 function preprocessCanvasFromDataURL(url){
   return new Promise(res=>{
-    const img=new Image();
-    img.onload=()=>{
-      const c=document.createElement('canvas');
-      c.width=img.naturalWidth; c.height=img.naturalHeight;
-      const ctx=c.getContext('2d',{willReadFrequently:true});
-      ctx.filter='grayscale(1) contrast(1.75) brightness(1.15)';
+    const img = new Image();
+    img.onload = ()=>{
+      const c = document.createElement('canvas');
+      c.width  = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const ctx = c.getContext('2d',{willReadFrequently:true});
+      ctx.filter = 'grayscale(1) contrast(1.75) brightness(1.15)';
       ctx.drawImage(img,0,0);
       res(c);
     };
-    img.src=url;
+    img.src = url;
   });
 }
 function norm(text){ return (text||'').replace(/\s+/g,' ').trim(); }
 
 /* ===== SIMPLE ALLERGEN DETECTION (optional) ===== */
-const ALLERGEN_RX={
-  milk:[/\bmilk\b/i,/우유/], soy:[/\bsoy\b/i,/대두/],
-  nuts:[/almond/i,/walnut/i,/견과/], peanut:[/\bpeanut\b/i,/땅콩/],
-  gluten:[/\bgluten\b/i,/밀가루/], egg:[/\begg\b/i,/계란/],
+const ALLERGEN_RX = {
+  milk:[/\bmilk\b/i,/우유/],
+  soy:[/\bsoy\b/i,/대두/],
+  nuts:[/almond/i,/walnut/i,/견과/],
+  peanut:[/\bpeanut\b/i,/땅콩/],
+  gluten:[/\bgluten\b/i,/밀가루/],
+  egg:[/\begg\b/i,/계란/],
   shellfish:[/shellfish|shrimp|crab/i,/해산물/]
 };
+
 function detectAllergens(text){
-  const set=new Set();
-  for(const[k,arr] of Object.entries(ALLERGEN_RX)){
+  const set = new Set();
+  for(const [k,arr] of Object.entries(ALLERGEN_RX)){
     if(arr.some(rx=>rx.test(text))) set.add(k);
   }
   return set;
 }
-function fmtKRW(n){return new Intl.NumberFormat('ko-KR').format(n)+'원'}
+
+function fmtKRW(n){
+  return new Intl.NumberFormat('ko-KR').format(n) + '원';
+}
 
 /* ===== OCR RUN ===== */
 $('#runAll').addEventListener('click', async ()=>{
-  if(!state.views.length){ alert('Add at least one view first.'); return; }
+  if(!state.views.length){
+    alert('Add at least one view first.');
+    return;
+  }
   const lang = $('#lang').value || 'eng+kor';
 
-  // OCR فقط برای تشخیص آلرژن / متن کلی استفاده می‌شود
   for(let i=0;i<state.views.length;i++){
-    const v=state.views[i];
-    const c=await preprocessCanvasFromDataURL(v.dataURL);
+    const v = state.views[i];
+    const c = await preprocessCanvasFromDataURL(v.dataURL);
     try{
-      const pass=await Tesseract.recognize(c,lang);
-      v.text = norm(pass.data.text||'');
+      const pass = await Tesseract.recognize(c, lang);
+      v.text = norm(pass.data.text || '');
     }catch(e){
+      console.warn('OCR error', e);
       v.text = '';
     }
   }
   mergeFacts();
 });
 
-/* ===== MERGE & VERDICT (با خروجی ثابت) ===== */
+/* ===== MERGE & VERDICT (demo with fixed outputs) ===== */
 function mergeFacts(){
-  const merged={text:'', allergens:new Set(), origin:null};
+  const merged = {text:'', allergens:new Set(), origin:null};
 
   state.views.forEach(v=>{
-    merged.text += (v.text||'') + '\n';
+    merged.text += (v.text || '') + '\n';
     detectAllergens(v.text).forEach(a=>merged.allergens.add(a));
   });
 
-  // 🎯 خروجی ثابت برای دموی این محصول
+  // 🎯 DEMO: ثابت برای این محصول خاص (هر عکسی بفرستی)
   merged.price  = {cur:'KRW', amount:1000};
   merged.mfg    = new Date(2025,2,14);  // 2025-03-14
   merged.expiry = new Date(2026,8,13);  // 2026-09-13
 
   state.merged = merged;
 
-  $('#fPrice').textContent = fmtKRW(merged.price.amount);
-  $('#fExpiry').textContent = merged.expiry.toISOString().slice(0,10);
-  $('#fMfg').textContent    = merged.mfg.toISOString().slice(0,10);
+  $('#fPrice').textContent    = fmtKRW(merged.price.amount);
+  $('#fExpiry').textContent   = merged.expiry.toISOString().slice(0,10);
+  $('#fMfg').textContent      = merged.mfg.toISOString().slice(0,10);
   $('#fAllergen').textContent = merged.allergens.size ? [...merged.allergens].join(', ') : '—';
   $('#fOrigin').textContent   = '—';
 
@@ -364,18 +460,18 @@ function mergeFacts(){
 }
 
 function verdict(){
-  const m=state.merged;
-  const issues=[];
+  const m = state.merged;
+  const issues = [];
   const userAll = $$('.allergen:checked').map(x=>x.value);
   const conflict = m.allergens && [...m.allergens].some(a=>userAll.includes(a));
   if(conflict) issues.push('Allergen conflict');
 
   const days = Math.ceil((m.expiry - new Date())/86400000);
-  if(days<0) issues.push('Expired');
-  else if(days<=1) issues.push('Expires soon');
+  if(days < 0)      issues.push('Expired');
+  else if(days<=1)  issues.push('Expires soon');
 
   const box = $('#verdict');
-  if(issues.length===0){
+  if(issues.length === 0){
     box.innerHTML = `<span class="pill ok">✅ Recommended</span> Looks good for your profile.`;
   } else {
     box.innerHTML = `<span class="pill">⚠️</span> ` + issues.join(' · ');
@@ -383,9 +479,11 @@ function verdict(){
 }
 
 /* ===== ASK (local-only) ===== */
-function detectLang(s){ return /[가-힣]/.test(s) ? 'KR' : 'EN'; }
+function detectLang(s){
+  return /[가-힣]/.test(s) ? 'KR' : 'EN';
+}
 function intent(q){
-  const s=q.toLowerCase();
+  const s = q.toLowerCase();
   if(/how much|price|가격|얼마/.test(s)) return 'price';
   if(/expiry|expiration|유통기한|소비기한|까지/.test(s)) return 'expiry';
   if(/allergen|알레르기/.test(s)) return 'allergen';
@@ -393,26 +491,36 @@ function intent(q){
   return 'general';
 }
 function localAnswer(q){
-  const L=detectLang(q); const I=intent(q); const m=state.merged;
-  const say=(en,kr)=> L==='KR'?kr:en;
-  if(I==='price')  return say(`Price ${fmtKRW(m.price.amount)}.`,`가격은 ${fmtKRW(m.price.amount)} 입니다.`);
-  if(I==='expiry') return say(`Expiry ${m.expiry.toISOString().slice(0,10)}.`,`유통기한은 ${m.expiry.toISOString().slice(0,10)} 입니다.`);
+  const L = detectLang(q);
+  const I = intent(q);
+  const m = state.merged;
+  const say = (en,kr)=> L==='KR' ? kr : en;
+
+  if(I==='price')
+    return say(`Price ${fmtKRW(m.price.amount)}.`,`가격은 ${fmtKRW(m.price.amount)} 입니다.`);
+  if(I==='expiry')
+    return say(`Expiry ${m.expiry.toISOString().slice(0,10)}.`,`유통기한은 ${m.expiry.toISOString().slice(0,10)} 입니다.`);
   if(I==='allergen'){
-    const a=m.allergens && m.allergens.size ? [...m.allergens].join(', ') : null;
-    return a ? say(`Allergens: ${a}.`,`알레르겐: ${a}.`) : say('No allergen keywords detected.','알레르겐이 감지되지 않았습니다.');
+    const a = m.allergens && m.allergens.size ? [...m.allergens].join(', ') : null;
+    return a ? say(`Allergens: ${a}.`,`알레르겐: ${a}.`) 
+             : say('No allergen keywords detected.','알레르겐이 감지되지 않았습니다.');
   }
   if(I==='recommend'){
-    const days = Math.ceil((m.expiry - new Date())/86400000);
-    const expired = days<0;
+    const days    = Math.ceil((m.expiry - new Date())/86400000);
+    const expired = days < 0;
     const conflict = m.allergens && [...m.allergens].some(a=> $$('.allergen:checked').map(x=>x.value).includes(a));
     if(expired || conflict) return say('⛔ Not recommended.','⛔ 비추천합니다.');
     return say('✅ Looks OK.','✅ 괜찮습니다.');
   }
   return say('No specific info.','관련 정보를 찾지 못했습니다.');
 }
+
 $('#ask').addEventListener('click', ()=>{
-  const q=($('#q').value||'').trim();
-  if(!q){ $('#qaOut').textContent='Type a question first.'; return; }
+  const q = ($('#q').value || '').trim();
+  if(!q){
+    $('#qaOut').textContent = 'Type a question first.';
+    return;
+  }
   $('#qaOut').textContent = localAnswer(q);
 });
 
@@ -420,7 +528,10 @@ $('#ask').addEventListener('click', ()=>{
 (async function init(){
   if(navigator.mediaDevices?.getUserMedia){
     await listCameras();
-    if(isMobile) startCamera();
+    if(isMobile){
+      // روی موبایل سعی می‌کنیم خودکار دوربین پشت را روشن کنیم
+      startCamera();
+    }
   }
 })();
 </script>
