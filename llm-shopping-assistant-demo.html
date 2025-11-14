@@ -127,7 +127,6 @@ video,canvas,img{
         </select>
         <button id="runAll">Run OCR (All Views)</button>
       </div>
-      <!-- no output box, no copy, no download -->
 
       <div class="hr"></div>
 
@@ -335,20 +334,42 @@ function preprocessCanvasFromDataURL(url){
 function norm(text){ return (text||'').replace(/\s+/g,' ').trim(); }
 
 /* ===== PARSERS ===== */
-/* ✅ NEW: price must have ₩ / ￦ / W before number */
+/* BETTER KRW PRICE DETECTOR */
 function parsePricesMulti(text){
-  const raw = text.replace(/\s/g,'');
+  const raw = text || '';
+  const ns  = raw.replace(/\s/g,'');
+
   const hits = [];
-  const krwRx = /(?:₩|￦|W)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]{2,6})/gi;
+
+  // 1) ₩ / ￦ / W + number
+  const rx1 = /(?:₩|￦|W)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]{3,5})/gi;
   let m;
-  while((m = krwRx.exec(raw)) !== null){
+  while((m = rx1.exec(ns)) !== null){
     const num = parseInt(m[1].replace(/,/g,''),10);
-    if(isFinite(num) && num >= 100 && num <= 100000){
+    if(isFinite(num) && num >= 100 && num <= 20000){
       hits.push({cur:'KRW', raw:m[0], amount:num, pos:m.index});
     }
   }
+
+  // 2) number + "원"
+  const rx2 = /([0-9]{1,3}(?:,[0-9]{3})*|[0-9]{3,5})\s*원/gi;
+  while((m = rx2.exec(raw)) !== null){
+    const num = parseInt(m[1].replace(/,/g,''),10);
+    if(isFinite(num) && num >= 100 && num <= 20000){
+      hits.push({cur:'KRW', raw:m[0], amount:num, pos:m.index});
+    }
+  }
+
+  // 3) fallback: 3–4 digit numbers that are not 20xx years
+  const rx3 = /\b(?!20[0-9]{2}\b)([1-9][0-9]{2,3})\b/g;
+  while((m = rx3.exec(raw)) !== null){
+    const num = parseInt(m[1],10);
+    if(isFinite(num) && num >= 100 && num <= 20000){
+      hits.push({cur:'KRW', raw:m[0], amount:num, pos:m.index});
+    }
+  }
+
   if(!hits.length) return null;
-  // choose the smallest reasonable price (to avoid 30000 from noise)
   hits.sort((a,b)=>a.amount - b.amount);
   return hits[0];
 }
@@ -369,6 +390,22 @@ function parseKoreanLikeDateAll(s){
   }
   return out;
 }
+
+/* جفت تاریخ در یک ویو: mfg و expiry */
+function extractPairDatesForView(text){
+  const noSpace = (text || '').replace(/\s/g,'');
+  const all = parseKoreanLikeDateAll(noSpace);
+  if(all.length < 2) return { mfg:null, expiry:null };
+
+  all.sort((a,b)=>a.date - b.date);
+  const first = all[0].date;
+  const last  = all[all.length-1].date;
+  if(last.getFullYear() - first.getFullYear() > 10){
+    return { mfg:null, expiry:null };
+  }
+  return { mfg:first, expiry:last };
+}
+
 function extractExpiry(text){
   const noSpace = text.replace(/\s/g,'');
   const all = parseKoreanLikeDateAll(noSpace);
@@ -475,6 +512,7 @@ $('#runAll').addEventListener('click', async ()=>{
 /* ===== MERGE & VERDICT ===== */
 function mergeFacts(){
   const merged={text:'', price:null, priceView:null, expiry:null, mfg:null, allergens:new Set(), origin:null};
+  let pairFromView = null;
 
   state.views.forEach((v,idx)=>{
     merged.text += (v.text||'') + '\n';
@@ -484,6 +522,13 @@ function mergeFacts(){
       if(!merged.price){ merged.price = pr; merged.priceView = idx+1; }
       else if(pr.amount < merged.price.amount){
         merged.price = pr; merged.priceView = idx+1;
+      }
+    }
+
+    if(!pairFromView){
+      const pair = extractPairDatesForView(v.text);
+      if(pair.mfg && pair.expiry){
+        pairFromView = pair;
       }
     }
 
@@ -498,17 +543,22 @@ function mergeFacts(){
     if(o && !merged.origin) merged.origin = o;
   });
 
+  if(pairFromView){
+    merged.mfg    = pairFromView.mfg;
+    merged.expiry = pairFromView.expiry;
+  }
+
   state.merged = merged;
 
-  $('#fPrice').textContent = merged.price ? `${fmtKRW(merged.price.amount)} ${merged.priceView?`(v${merged.priceView})`:''}` : 'unreadable';
+  $('#fPrice').textContent  = merged.price ? `${fmtKRW(merged.price.amount)} ${merged.priceView?`(v${merged.priceView})`:''}` : 'unreadable';
   $('#fExpiry').textContent = merged.expiry ? merged.expiry.toISOString().slice(0,10) : 'unreadable';
-  $('#fMfg').textContent = merged.mfg ? merged.mfg.toISOString().slice(0,10) : '—';
+  $('#fMfg').textContent    = merged.mfg ? merged.mfg.toISOString().slice(0,10) : '—';
   $('#fAllergen').textContent = merged.allergens.size ? [...merged.allergens].join(', ') : '—';
-  $('#fOrigin').textContent = merged.origin || '—';
+  $('#fOrigin').textContent   = merged.origin || '—';
 
   verdict();
 
-  // optional LLM refinement
+  // optional LLM refinement (همان قبلی)
   (async ()=>{
     const refinedText = await refineWithLLM(state.merged.text);
     if(!refinedText) return;
