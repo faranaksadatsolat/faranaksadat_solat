@@ -3,18 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>LLM Shopping Assistant — SIIF 2025 (Multi-View • Free Beta)</title>
+<title>LLM Shopping Assistant — SIIF 2025 Demo</title>
 
 <!-- Tesseract.js (OCR, on-device) -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 
-<!-- WebLLM (free, local, optional) -->
-<script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.48/dist/web-llm.min.js"></script>
-
 <style>
 :root{
   --bg:#0b1020;--card:#111833;--ink:#ecf2ff;--muted:#9fb3ff;--accent:#6ee7b7;--accent2:#a78bfa;--line:rgba(255,255,255,.08);
-  --danger:#ff6b6b;--warn:#ffd166;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -53,13 +49,13 @@ button{
 }
 button.secondary{background:#121a36;color:var(--ink);box-shadow:none;border:1px solid var(--line)}
 button:active{transform:translateY(1px)}
-select,input,textarea{
+select,input{
   background:#0b1430;color:var(--ink);
   border:1px solid var(--line);
   border-radius:10px;
   padding:10px 12px
 }
-video,canvas,img{
+video,canvas{
   width:100%;max-height:360px;
   border-radius:14px;
   background:#0b1430;
@@ -76,8 +72,6 @@ video,canvas,img{
 .out{white-space:pre-wrap;background:#0b1430;border:1px solid var(--line);border-radius:12px;padding:12px;min-height:54px}
 .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px}
 .ok{background:rgba(110,231,183,.14);border-color:rgba(110,231,183,.35)}
-.no{background:rgba(255,107,107,.14);border-color:rgba(255,107,107,.38)}
-.warn{background:rgba(255,209,102,.14);border-color:rgba(255,209,102,.38)}
 .note{font-size:12px;color:var(--muted)}
 .footer{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
 .hidden{display:none!important}
@@ -93,7 +87,7 @@ video,canvas,img{
         <div class="sub">Inventor: <b>Faranaksadat Solat</b> • Patent No. <span class="mono">10-2865941</span></div>
       </div>
     </div>
-    <div class="badge">🔒 On-device OCR • EN/KR • Local LLM</div>
+    <div class="badge">🔒 On-device OCR • EN/KR (Demo fixed output)</div>
   </header>
 
   <div class="grid">
@@ -119,7 +113,6 @@ video,canvas,img{
 
       <div class="hr"></div>
 
-      <!-- OCR SECTION (simplified) -->
       <h2>2) OCR all views & smart merge</h2>
       <div class="row">
         <select id="lang">
@@ -170,11 +163,7 @@ video,canvas,img{
 </div>
 
 <script>
-/* ===== ENV / STATE ===== */
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-const hasWebGPU = !!navigator.gpu;
-const MOBILE_PREFERRED_RX = { id:/camera2\\s*0/i, back:/back|rear/i };
-
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 
@@ -183,11 +172,12 @@ const state = {
   imageCapture:null,
   deviceId:null,
   views:[],
-  merged:{text:'', price:null, priceView:null, expiry:null, mfg:null, allergens:new Set(), origin:null}
+  merged:{text:'', price:null, expiry:null, mfg:null, allergens:new Set(), origin:null}
 };
 
 /* ===== CAMERA ===== */
 async function listCameras(){
+  if(!navigator.mediaDevices?.enumerateDevices) return;
   const devs = await navigator.mediaDevices.enumerateDevices();
   const vids = devs.filter(d=>d.kind==='videoinput');
   const sel = $('#cameraSelect'); sel.innerHTML='';
@@ -201,34 +191,12 @@ async function listCameras(){
   sel.value = state.deviceId || '';
   if(isMobile) sel.style.display='none';
 }
-async function pickMobileBackCameraId(){
-  try{
-    const devs=await navigator.mediaDevices.enumerateDevices();
-    const vids=devs.filter(d=>d.kind==='videoinput');
-    let hit=vids.find(d=>MOBILE_PREFERRED_RX.id.test(d.label) && MOBILE_PREFERRED_RX.back.test(d.label));
-    if(hit) return hit.deviceId;
-    hit=vids.find(d=>MOBILE_PREFERRED_RX.back.test(d.label));
-    if(hit) return hit.deviceId;
-    return null;
-  }catch{return null}
-}
+
 async function startCamera(){
   try{
     if(state.stream) stopCamera();
-    let constraints;
-    if(isMobile){
-      try{
-        const warm=await navigator.mediaDevices.getUserMedia({video:true});
-        warm.getTracks().forEach(t=>t.stop());
-      }catch{}
-      const mobileId = await pickMobileBackCameraId();
-      constraints = mobileId ? {
-        video:{deviceId:{exact:mobileId}, width:{ideal:2560}, height:{ideal:1440}}
-      } : { video:{facingMode:{exact:'environment'}, width:{ideal:2560}, height:{ideal:1440}} };
-    } else {
-      constraints = { video:{width:{ideal:2560}, height:{ideal:1440}, facingMode:{ideal:'environment'}} };
-      if(state.deviceId) constraints.video.deviceId = { exact:state.deviceId };
-    }
+    let constraints = { video:{width:{ideal:2560}, height:{ideal:1440}, facingMode:{ideal:'environment'}} };
+    if(state.deviceId) constraints.video.deviceId = { exact:state.deviceId };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     state.stream = stream;
     $('#video').srcObject = stream;
@@ -290,7 +258,9 @@ function renderThumbs(){
   });
 }
 $('#addView').addEventListener('click', async ()=>{
-  if(!state.stream && !$('#video').srcObject){ await startCamera(); }
+  if(!state.stream && !$('#video').srcObject && navigator.mediaDevices?.getUserMedia){
+    await startCamera();
+  }
   const url = await takeFrameAsDataURL(); if(url) addThumb(url);
 });
 $('#clearAll').addEventListener('click',()=>{
@@ -333,265 +303,91 @@ function preprocessCanvasFromDataURL(url){
 }
 function norm(text){ return (text||'').replace(/\s+/g,' ').trim(); }
 
-/* ===== PARSERS ===== */
-/* ✅ price must have ₩ / ￦ / W before number */
-function parsePricesMulti(text){
-  const raw = text.replace(/\s/g,'');
-  const hits = [];
-  const krwRx = /(?:₩|￦|W)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]{2,6})/gi;
-  let m;
-  while((m = krwRx.exec(raw)) !== null){
-    const num = parseInt(m[1].replace(/,/g,''),10);
-    if(isFinite(num) && num >= 100 && num <= 100000){
-      hits.push({cur:'KRW', raw:m[0], amount:num, pos:m.index});
-    }
-  }
-  if(!hits.length) return null;
-  hits.sort((a,b)=>a.amount - b.amount);
-  return hits[0];
-}
-
-function parseKoreanLikeDateAll(s){
-  const out = [];
-  const r1 = /(20\d{2})[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/g;
-  let m;
-  while((m = r1.exec(s)) !== null){
-    const d=new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
-    if(!isNaN(d)) out.push({date:d, idx:m.index});
-  }
-  const r2 = /(2\d)[.\-\/]?(0?[1-9]|1[0-2])[.\-\/]?(0?[1-9]|[12]\d|3[01])/g;
-  while((m = r2.exec(s)) !== null){
-    const yr = 2000 + parseInt(m[1],10);
-    const d=new Date(yr, parseInt(m[2],10)-1, parseInt(m[3],10));
-    if(!isNaN(d)) out.push({date:d, idx:m.index});
-  }
-  return out;
-}
-function extractExpiry(text){
-  const noSpace = text.replace(/\s/g,'');
-  const all = parseKoreanLikeDateAll(noSpace);
-  if(!all.length) return null;
-  const markers = [
-    /유통기한/i, /소비기한/i, /까지/i,
-    /EXP/i, /UseBy/i, /BestBefore/i, /Expiration/i
-  ];
-  const markerPos = [];
-  markers.forEach(rx=>{
-    let m;
-    while((m = rx.exec(noSpace)) !== null){
-      markerPos.push(m.index);
-    }
-  });
-  if(markerPos.length){
-    for(const mp of markerPos){
-      const cand = all
-        .filter(d => d.idx >= mp && d.date.getFullYear() <= 2035)
-        .sort((a,b)=>a.idx - b.idx)[0];
-      if(cand) return cand.date;
-    }
-  }
-  const reasonable = all.filter(d => d.date.getFullYear() <= 2035);
-  if(reasonable.length){
-    reasonable.sort((a,b)=>b.date - a.date);
-    return reasonable[0].date;
-  }
-  return null;
-}
-
+/* ===== SIMPLE ALLERGEN DETECTION (optional) ===== */
 const ALLERGEN_RX={
-  milk:[/\bmilk\b/i,/우유/,/乳/], soy:[/\bsoy\b/i,/대두/],
-  nuts:[/almond/i,/walnut/i,/cashew/i,/hazelnut/i,/pistachio/i,/pecan/i,/macadamia/i,/견과/,/호두/,/아몬드/],
-  peanut:[/\bpeanut\b/i,/땅콩/], gluten:[/\bgluten\b/i,/밀가루/,/소맥/,/밀\b/],
-  egg:[/\begg\b/i,/계란/,/난류/], shellfish:[/shellfish|shrimp|crab|lobster/i,/조개/,/새우/,/게/]
+  milk:[/\bmilk\b/i,/우유/], soy:[/\bsoy\b/i,/대두/],
+  nuts:[/almond/i,/walnut/i,/견과/], peanut:[/\bpeanut\b/i,/땅콩/],
+  gluten:[/\bgluten\b/i,/밀가루/], egg:[/\begg\b/i,/계란/],
+  shellfish:[/shellfish|shrimp|crab/i,/해산물/]
 };
 function detectAllergens(text){
   const set=new Set();
-  for(const[k,arr] of Object.entries(ALLERGEN_RX)){ if(arr.some(rx=>rx.test(text))) set.add(k); }
+  for(const[k,arr] of Object.entries(ALLERGEN_RX)){
+    if(arr.some(rx=>rx.test(text))) set.add(k);
+  }
   return set;
 }
-function detectOrigin(text){
-  const arr=[
-    {k:/한국|대한민국|국내산|madeinkorea|korea/i,v:'Korea'},
-    {k:/usa|미국|madeinusa/i,v:'USA'},
-    {k:/japan|일본/i,v:'Japan'},
-    {k:/iran|이란/i,v:'Iran'},
-    {k:/china|중국/i,v:'China'}
-  ];
-  for(const o of arr){ if(o.k.test(text)) return o.v; }
-  return null;
-}
 function fmtKRW(n){return new Intl.NumberFormat('ko-KR').format(n)+'원'}
-
-/* ===== MANUAL OVERRIDES FOR SPECIFIC PRODUCTS (DEMO) ===== */
-function applyManualOverrides(merged){
-  const t = (merged.text || '').toLowerCase();
-
-  // Tea-tree Wet Wipes (티트리 물티슈 30매) – your sample product
-  const isTeaTreeWipes =
-    /티트리\s*물티슈/.test(t) || /tea[-\s]?tree\s+wet\s+wipes/.test(t);
-
-  if(isTeaTreeWipes){
-    // Hard-coded known correct dates
-    const mfg = new Date(2025, 2, 14);   // 2025-03-14  (month index 2 = March)
-    const exp = new Date(2026, 8, 13);   // 2026-09-13  (month index 8 = September)
-
-    merged.mfg = mfg;
-    merged.expiry = exp;
-
-    // If price not found, force 1000 KRW
-    if(!merged.price){
-      merged.price = {cur:'KRW', amount:1000, raw:'1000', pos:-1};
-    }
-  }
-  return merged;
-}
-
-/* ===== LLM (local, optional) ===== */
-let llmReady = false;
-let llmEngine = null;
-const llmModel = 'TinyLlama-1.1B-chat-v1.0-q4f16_1-MLC';
-
-async function ensureLLM(){
-  if(llmReady) return;
-  if(!window.mlc?.ai) return;
-  llmEngine = await window.mlc.ai.createMLCEngine({
-    model: llmModel,
-    progressCallback: (p)=>{}
-  });
-  llmReady = true;
-}
-
-async function refineWithLLM(allOcrText){
-  await ensureLLM();
-  if(!llmReady) return null;
-  const sys = 'You are a strict label parser for Korean and English grocery products. '
-    + 'Return ONLY JSON. Fields: "price_krw" (number or "UNREADABLE"), '
-    + '"expiry" (YYYY-MM-DD or "UNREADABLE"). '
-    + 'Do NOT invent numbers.';
-  const user = 'OCR_TEXT:\n' + allOcrText + '\n---\nExtract price in KRW and expiry date.';
-  const out = await llmEngine.chat.completions.create({
-    messages:[
-      {role:'system', content:sys},
-      {role:'user', content:user}
-    ],
-    temperature:0
-  });
-  const txt = out?.choices?.[0]?.message?.content?.trim();
-  return txt || null;
-}
 
 /* ===== OCR RUN ===== */
 $('#runAll').addEventListener('click', async ()=>{
   if(!state.views.length){ alert('Add at least one view first.'); return; }
   const lang = $('#lang').value || 'eng+kor';
 
+  // OCR فقط برای تشخیص آلرژن / متن کلی استفاده می‌شود
   for(let i=0;i<state.views.length;i++){
     const v=state.views[i];
     const c=await preprocessCanvasFromDataURL(v.dataURL);
-    const pass=await Tesseract.recognize(c,lang);
-    v.text = norm(pass.data.text||'');
+    try{
+      const pass=await Tesseract.recognize(c,lang);
+      v.text = norm(pass.data.text||'');
+    }catch(e){
+      v.text = '';
+    }
   }
   mergeFacts();
 });
 
-/* ===== MERGE & VERDICT ===== */
+/* ===== MERGE & VERDICT (با خروجی ثابت) ===== */
 function mergeFacts(){
-  const merged={text:'', price:null, priceView:null, expiry:null, mfg:null, allergens:new Set(), origin:null};
+  const merged={text:'', allergens:new Set(), origin:null};
 
-  state.views.forEach((v,idx)=>{
+  state.views.forEach(v=>{
     merged.text += (v.text||'') + '\n';
-
-    const pr = parsePricesMulti(v.text);
-    if(pr){
-      if(!merged.price){ merged.price = pr; merged.priceView = idx+1; }
-      else if(pr.amount < merged.price.amount){
-        merged.price = pr; merged.priceView = idx+1;
-      }
-    }
-
-    const ex = extractExpiry(v.text);
-    if(ex && (!merged.expiry || ex>merged.expiry)) merged.expiry = ex;
-
-    const mf = (/제조|생산|제조일|mfg|manufactured/i.test(v.text)) ? extractExpiry(v.text) : null;
-    if(mf && (!merged.mfg || mf>merged.mfg)) merged.mfg = mf;
-
     detectAllergens(v.text).forEach(a=>merged.allergens.add(a));
-    const o = detectOrigin(v.text);
-    if(o && !merged.origin) merged.origin = o;
   });
 
-  // 🔹 اینجا override دستی اعمال می‌شود
-  applyManualOverrides(merged);
+  // 🎯 خروجی ثابت برای دموی این محصول
+  merged.price  = {cur:'KRW', amount:1000};
+  merged.mfg    = new Date(2025,2,14);  // 2025-03-14
+  merged.expiry = new Date(2026,8,13);  // 2026-09-13
 
   state.merged = merged;
 
-  $('#fPrice').textContent = merged.price ? `${fmtKRW(merged.price.amount)} ${merged.priceView?`(v${merged.priceView})`:''}` : 'unreadable';
-  $('#fExpiry').textContent = merged.expiry ? merged.expiry.toISOString().slice(0,10) : 'unreadable';
-  $('#fMfg').textContent = merged.mfg ? merged.mfg.toISOString().slice(0,10) : '—';
+  $('#fPrice').textContent = fmtKRW(merged.price.amount);
+  $('#fExpiry').textContent = merged.expiry.toISOString().slice(0,10);
+  $('#fMfg').textContent    = merged.mfg.toISOString().slice(0,10);
   $('#fAllergen').textContent = merged.allergens.size ? [...merged.allergens].join(', ') : '—';
-  $('#fOrigin').textContent = merged.origin || '—';
+  $('#fOrigin').textContent   = '—';
 
   verdict();
-
-  // optional LLM refinement
-  (async ()=>{
-    const refinedText = await refineWithLLM(state.merged.text);
-    if(!refinedText) return;
-    try{
-      const obj = JSON.parse(refinedText);
-      if(obj.price_krw && obj.price_krw !== 'UNREADABLE'){
-        const num = Number(obj.price_krw);
-        if(isFinite(num) && num >= 100 && num <= 100000){
-          state.merged.price = {cur:'KRW', amount:num};
-          $('#fPrice').textContent = fmtKRW(num) + ' (LLM)';
-        }
-      }
-      if(obj.expiry && obj.expiry !== 'UNREADABLE'){
-        const d = new Date(obj.expiry);
-        if(!isNaN(d)){
-          state.merged.expiry = d;
-          $('#fExpiry').textContent = d.toISOString().slice(0,10) + ' (LLM)';
-          verdict();
-        }
-      }
-    }catch(e){ console.warn('LLM JSON error', e); }
-  })();
 }
 
 function verdict(){
   const m=state.merged;
   const issues=[];
   const userAll = $$('.allergen:checked').map(x=>x.value);
-  const conflict = [...m.allergens].some(a=>userAll.includes(a));
+  const conflict = m.allergens && [...m.allergens].some(a=>userAll.includes(a));
   if(conflict) issues.push('Allergen conflict');
-  if(m.expiry){
-    const days = Math.ceil((m.expiry - new Date())/86400000);
-    if(days<0) issues.push('Expired');
-    else if(days<=1) issues.push('Expires soon');
-  } else {
-    issues.push('Expiry not detected — take closer photo of 유통기한.');
-  }
+
+  const days = Math.ceil((m.expiry - new Date())/86400000);
+  if(days<0) issues.push('Expired');
+  else if(days<=1) issues.push('Expires soon');
+
   const box = $('#verdict');
   if(issues.length===0){
     box.innerHTML = `<span class="pill ok">✅ Recommended</span> Looks good for your profile.`;
-  } else if(issues.some(s=>/Expired|Allergen/.test(s))){
-    box.innerHTML = `<span class="pill no">⛔ Not Recommended</span>\n- ` + issues.join('\n- ');
   } else {
-    box.innerHTML = `<span class="pill warn">⚠️ Caution</span>\n- ` + issues.join('\n- ');
+    box.innerHTML = `<span class="pill">⚠️</span> ` + issues.join(' · ');
   }
 }
-$$('.allergen').forEach(cb=>cb.addEventListener('change',verdict));
 
 /* ===== ASK (local-only) ===== */
-function detectLang(s){
-  if(/[가-힣]/.test(s)) return 'KR';
-  return 'EN';
-}
+function detectLang(s){ return /[가-힣]/.test(s) ? 'KR' : 'EN'; }
 function intent(q){
   const s=q.toLowerCase();
   if(/how much|price|가격|얼마/.test(s)) return 'price';
   if(/expiry|expiration|유통기한|소비기한|까지/.test(s)) return 'expiry';
-  if(/origin|원산지/.test(s)) return 'origin';
   if(/allergen|알레르기/.test(s)) return 'allergen';
   if(/should i buy|사도될까|괜찮아/.test(s)) return 'recommend';
   return 'general';
@@ -599,16 +395,16 @@ function intent(q){
 function localAnswer(q){
   const L=detectLang(q); const I=intent(q); const m=state.merged;
   const say=(en,kr)=> L==='KR'?kr:en;
-  if(I==='price') return m.price ? say(`Price ${fmtKRW(m.price.amount)}.`,`가격은 ${fmtKRW(m.price.amount)} 입니다.`) : say('Price unreadable from label.','라벨에서 가격을 읽지 못했습니다.');
-  if(I==='expiry') return m.expiry ? say(`Expiry ${m.expiry.toISOString().slice(0,10)}.`,`유통기한은 ${m.expiry.toISOString().slice(0,10)} 입니다.`) : say('Expiry unreadable from label.','유통기한을 읽지 못했습니다.');
-  if(I==='origin') return m.origin ? say(`Origin: ${m.origin}.`,`원산지: ${m.origin}`) : say('Origin not detected.','원산지를 찾지 못했습니다.');
+  if(I==='price')  return say(`Price ${fmtKRW(m.price.amount)}.`,`가격은 ${fmtKRW(m.price.amount)} 입니다.`);
+  if(I==='expiry') return say(`Expiry ${m.expiry.toISOString().slice(0,10)}.`,`유통기한은 ${m.expiry.toISOString().slice(0,10)} 입니다.`);
   if(I==='allergen'){
-    const a=m.allergens.size ? [...m.allergens].join(', ') : null;
+    const a=m.allergens && m.allergens.size ? [...m.allergens].join(', ') : null;
     return a ? say(`Allergens: ${a}.`,`알레르겐: ${a}.`) : say('No allergen keywords detected.','알레르겐이 감지되지 않았습니다.');
   }
   if(I==='recommend'){
-    const expired=m.expiry ? (m.expiry - new Date())<0 : false;
-    const conflict=[...m.allergens].some(a=> $$('.allergen:checked').map(x=>x.value).includes(a));
+    const days = Math.ceil((m.expiry - new Date())/86400000);
+    const expired = days<0;
+    const conflict = m.allergens && [...m.allergens].some(a=> $$('.allergen:checked').map(x=>x.value).includes(a));
     if(expired || conflict) return say('⛔ Not recommended.','⛔ 비추천합니다.');
     return say('✅ Looks OK.','✅ 괜찮습니다.');
   }
@@ -617,7 +413,6 @@ function localAnswer(q){
 $('#ask').addEventListener('click', ()=>{
   const q=($('#q').value||'').trim();
   if(!q){ $('#qaOut').textContent='Type a question first.'; return; }
-  if(!state.merged.text){ $('#qaOut').textContent='Run OCR first.'; return; }
   $('#qaOut').textContent = localAnswer(q);
 });
 
@@ -625,9 +420,7 @@ $('#ask').addEventListener('click', ()=>{
 (async function init(){
   if(navigator.mediaDevices?.getUserMedia){
     await listCameras();
-  }
-  if(isMobile){
-    startCamera();
+    if(isMobile) startCamera();
   }
 })();
 </script>
